@@ -1,0 +1,61 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: 1000aroms-app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    networks:
+      - 1000aroms-network
+
+  db:
+    image: postgres:15-alpine
+    container_name: 1000aroms-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: 1000aroms
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - 1000aroms-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: 1000aroms-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - 1000aroms-network
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: 1000aroms-mail
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - 1000aroms-network
+
+networks:
+  1000aroms-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:

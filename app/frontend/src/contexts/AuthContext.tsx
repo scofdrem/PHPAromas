@@ -1,0 +1,134 @@
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from 'react';
+import { laravelApi, getStoredUser, type User } from '../lib/laravelApi';
+
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (data: {
+    email: string;
+    password: string;
+    password_confirmation: string;
+    first_name?: string;
+    last_name?: string;
+  }) => Promise<boolean>;
+  logout: () => Promise<void>;
+  refetch: () => Promise<void>;
+  isAdmin: boolean;
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const checkAuthStatus = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      // First try to get stored user for instant load
+      const storedUser = getStoredUser();
+      if (storedUser) {
+        setUser(storedUser);
+      }
+      // Then verify with server
+      const userData = await laravelApi.getMe();
+      if (userData) {
+        setUser(userData);
+      } else {
+        setUser(null);
+      }
+    } catch (err) {
+      console.log('Auth check failed:', err);
+      // Don't clear user on network errors if we have a stored user
+      if (!storedUser) {
+        setUser(null);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const storedUser = getStoredUser();
+
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      setError(null);
+      const result = await laravelApi.login(email, password);
+      setUser(result.user);
+      return true;
+    } catch (err: any) {
+      const message = err.response?.data?.message || err.message || 'Login failed';
+      setError(message);
+      return false;
+    }
+  };
+
+  const register = async (data: {
+    email: string;
+    password: string;
+    password_confirmation: string;
+    first_name?: string;
+    last_name?: string;
+  }): Promise<boolean> => {
+    try {
+      setError(null);
+      const newUser = await laravelApi.register(data);
+      setUser(newUser);
+      return true;
+    } catch (err: any) {
+      const message = err.response?.data?.message || err.message || 'Registration failed';
+      setError(message);
+      return false;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      setError(null);
+      await laravelApi.logout();
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      setUser(null);
+    }
+  };
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const value: AuthContextType = {
+    user,
+    loading,
+    error,
+    login,
+    register,
+    logout,
+    refetch: checkAuthStatus,
+    isAdmin: user?.role === 'administrator',
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
