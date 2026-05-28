@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
-    return view('welcome');
+    return view('spa');
 });
 
 // Health check endpoint (for startup script)
@@ -33,3 +33,8 @@ Route::get('/api/config', function () {
         'ENV' => config('app.env', 'production'),
     ]);
 });
+
+// Catch-all route for SPA - must be last
+Route::get('/{any}', function () {
+    return view('spa');
+})->where('any', '.*');

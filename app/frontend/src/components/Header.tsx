@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Search, X, Menu } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Search, X, Menu, LogIn, LogOut } from "lucide-react";
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Header() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout, isAdmin } = useAuth();
 
   const navLinks = [
     { name: "Каталог", path: "/catalogue" },
@@ -57,6 +60,18 @@ export default function Header() {
                 {link.name}
               </Link>
             ))}
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className={`text-sm tracking-[0.1em] uppercase transition-colors duration-200 ${
+                  location.pathname === "/admin"
+                    ? "text-[#C69B56]"
+                    : "text-white/70 hover:text-[#C69B56]"
+                }`}
+              >
+                Админ
+              </Link>
+            )}
           </nav>
 
           {/* Search */}
@@ -82,7 +97,23 @@ export default function Header() {
                 <Search size={20} />
               </button>
             )}
-
+            {user ? (
+              <button
+                onClick={() => { logout(); navigate('/'); }}
+                className="text-white/70 hover:text-[#C69B56] transition-colors p-1"
+                title="Выйти"
+              >
+                <LogOut size={20} />
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="text-white/70 hover:text-[#C69B56] transition-colors p-1"
+                title="Войти"
+              >
+                <LogIn size={20} />
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -101,6 +132,31 @@ export default function Header() {
                 {link.name}
               </Link>
             ))}
+            {isAdmin && (
+              <Link
+                to="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-6 py-3 text-sm tracking-[0.1em] uppercase text-white/70 hover:text-[#C69B56] hover:bg-white/5 transition-colors"
+              >
+                Админ
+              </Link>
+            )}
+            {user ? (
+              <button
+                onClick={() => { logout(); setMobileMenuOpen(false); navigate('/'); }}
+                className="px-6 py-3 text-sm tracking-[0.1em] uppercase text-white/70 hover:text-[#C69B56] hover:bg-white/5 transition-colors text-left"
+              >
+                Выйти
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-6 py-3 text-sm tracking-[0.1em] uppercase text-white/70 hover:text-[#C69B56] hover:bg-white/5 transition-colors"
+              >
+                Войти
+              </Link>
+            )}
           </nav>
         </div>
       )}

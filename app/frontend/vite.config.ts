@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 import { viteSourceLocator } from '@metagptx/vite-plugin-source-locator';
 import { atoms } from '@metagptx/web-sdk/plugins';
 import { vitePrerenderPlugin } from 'vite-prerender-plugin';
@@ -54,7 +57,7 @@ export default defineConfig(({ command }) => {
       },
     },
     server: {
-      host: '0.0.0.0', // Listen on all network interfaces.
+      host: '127.0.0.1', // Explicit IPv4 to fix browser connectivity.
       port: parseInt(process.env.VITE_PORT || '3000'),
       proxy: {
         '/api': {
@@ -63,8 +66,12 @@ export default defineConfig(({ command }) => {
         },
       },
       watch: { usePolling: true, interval: 600 },
+      historyApiFallback: true,
     },
+    base: command === 'build' ? '/build/' : '/',
     build: {
+      outDir: path.resolve(__dirname, '../../laravel-backend/public/build'),
+      emptyOutDir: true,
       rollupOptions: {
         output: {
           manualChunks: {

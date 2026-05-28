@@ -14,5 +14,10 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
-    return view('welcome');
+    return view('spa');
 });
+
+// Catch-all route for SPA - must be last
+Route::get('/{any}', function () {
+    return view('spa');
+})->where('any', '.*');

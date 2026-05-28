@@ -9,6 +9,7 @@ import Catalogue from './pages/Catalogue';
 import Admin from './pages/Admin';
 import AuthCallback from './pages/AuthCallback';
 import AuthError from './pages/AuthError';
+import Login from './pages/Login';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { initSiteContentFromBackend } from '@/data/siteContent';
 import { initProductsFromBackend, initCategoriesFromBackend } from '@/data/productsStore';
@@ -32,6 +33,7 @@ const AppRoutes = () => {
     {/* <Route path="/blog/*" element={<BlogRoutes />} /> */}
     <Route path="/auth/callback" element={<AuthCallback />} />
     <Route path="/auth/error" element={<AuthError />} />
+    <Route path="/login" element={<Login />} />
     {/* MODULE_ROUTES_START */}
     {/* MODULE_ROUTES_END */}
   </Routes>

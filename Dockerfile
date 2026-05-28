@@ -2,7 +2,6 @@ FROM php:8.4-fpm-alpine
 
 # Install system dependencies
 RUN apk add --no-cache \
-    postgresql-dev \
     linux-headers \
     $PHPIZE_DEPS \
     nodejs \
@@ -11,13 +10,7 @@ RUN apk add --no-cache \
     curl \
     zip \
     unzip \
-    && docker-php-ext-install pdo pdo_pgsql
-
-# Install Redis extension
-RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
-    && pecl install redis \
-    && docker-php-ext-enable redis \
-    && apk del .build-deps
+    && docker-php-ext-install pdo pdo_mysql
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
