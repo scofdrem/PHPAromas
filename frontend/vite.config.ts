@@ -80,7 +80,7 @@ export default defineConfig(({ command }) => {
     },
     base: command === 'build' ? '/build/' : '/',
     build: {
-      outDir: path.resolve(__dirname, '../../public/build'),
+      outDir: path.resolve(__dirname, '../public/build'),
       emptyOutDir: true,
       rollupOptions: {
         output: {

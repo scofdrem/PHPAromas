@@ -1140,7 +1140,7 @@ main() {
     
     # Get project root directory
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    BACKEND_DIR="$SCRIPT_DIR/../laravel-backend"
+    BACKEND_DIR="$SCRIPT_DIR"
     FRONTEND_DIR="$SCRIPT_DIR/frontend"
     
     # Check if directories exist

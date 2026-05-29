@@ -1,4 +1,7 @@
 /.phpunit.cache
+/frontend/node_modules
+/.mgx/
+/frontend/.mgx/
 /node_modules
 /public/build
 /public/hot
