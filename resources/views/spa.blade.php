@@ -12,17 +12,16 @@
     <meta property="og:description" content="PHP Aromas - Fragrance Management System">
     <meta property="og:type" content="website">
 
-    <link rel="modulepreload" crossorigin href="{{ asset('build/assets/ui-vendor-D6HE9Umz.js') }}">
-    <link rel="modulepreload" crossorigin href="{{ asset('build/assets/utils-vendor-jCV1xmvT.js') }}">
-    <link rel="modulepreload" crossorigin href="{{ asset('build/assets/query-vendor-CA16BuBg.js') }}">
-    <link rel="modulepreload" crossorigin href="{{ asset('build/assets/router-vendor-CSBxx4E7.js') }}">
-    <link rel="modulepreload" crossorigin href="{{ asset('build/assets/form-vendor-Bcpnz-nb.js') }}">
-    <link rel="modulepreload" crossorigin href="{{ asset('build/assets/react-vendor-Bcpnz-nb.js') }}">
-    <link rel="stylesheet" href="{{ asset('build/assets/index-BD9dRbu3.css') }}">
+    <link rel="modulepreload" crossorigin href="{{ asset('build/assets/ui-vendor-B2oKa9qX.js') }}">
+    <link rel="modulepreload" crossorigin href="{{ asset('build/assets/utils-vendor-BWP9EtHT.js') }}">
+    <link rel="modulepreload" crossorigin href="{{ asset('build/assets/query-vendor-ByyGdLta.js') }}">
+    <link rel="modulepreload" crossorigin href="{{ asset('build/assets/router-vendor-Dv9dpR51.js') }}">
+    <link rel="modulepreload" crossorigin href="{{ asset('build/assets/react-vendor-C3CC42HN.js') }}">
+    <link rel="stylesheet" href="{{ asset('build/assets/index-DhPzuyhP.css') }}">
   </head>
 
   <body>
     <div id="root"></div>
-    <script type="module" src="{{ asset('build/assets/index-DiyDyDSy.js') }}"></script>
+    <script type="module" src="{{ asset('build/assets/index-n1MZSjV2.js') }}"></script>
   </body>
 </html>

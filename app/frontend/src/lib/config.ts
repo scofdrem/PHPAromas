@@ -8,7 +8,7 @@ let configLoading = true;
 
 // Default fallback configuration
 const defaultConfig = {
-  API_BASE_URL: 'http://127.0.0.1:8000', // Only used if runtime config fails to load
+  API_BASE_URL: '', // Empty = use same-origin relative /api (works with Vite proxy + Laravel SPA)
 };
 
 // Function to load runtime configuration

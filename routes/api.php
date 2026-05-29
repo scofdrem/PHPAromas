@@ -23,6 +23,16 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+// ==================== FRONTEND COMPATIBLE AUTH ROUTES (no v1 prefix) ====================
+Route::prefix('auth')->group(function () {
+    Route::post('login', [AuthController::class, 'login']);
+    Route::post('register', [AuthController::class, 'register']);
+    Route::get('me', [AuthController::class, 'me'])->middleware('auth:api');
+    Route::post('me', [AuthController::class, 'me'])->middleware('auth:api');
+    Route::post('logout', [AuthController::class, 'logout'])->middleware('auth:api');
+    Route::post('refresh', [AuthController::class, 'refresh'])->middleware('auth:api');
+});
+
 Route::prefix('v1')->group(function () {
 
     // ==================== AUTH ROUTES ====================
@@ -31,6 +41,10 @@ Route::prefix('v1')->group(function () {
         Route::post('sign-in/email', [AuthController::class, 'signInEmail']);
         Route::post('sign-up/email', [AuthController::class, 'signUpEmail']);
         Route::post('sign-in/username', [AuthController::class, 'signInUsername'])->name('login');
+        
+        // Legacy endpoints for frontend compatibility
+        Route::post('login', [AuthController::class, 'login']);
+        Route::post('register', [AuthController::class, 'register']);
 
         // Protected auth routes
         Route::middleware('auth:api')->group(function () {

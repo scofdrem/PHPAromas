@@ -11,14 +11,14 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<void>;
   register: (data: {
     email: string;
     password: string;
     password_confirmation: string;
     first_name?: string;
     last_name?: string;
-  }) => Promise<boolean>;
+  }) => Promise<void>;
   logout: () => Promise<void>;
   refetch: () => Promise<void>;
   isAdmin: boolean;
@@ -62,7 +62,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (err) {
       console.log('Auth check failed:', err);
       // Don't clear user on network errors if we have a stored user
-      if (!storedUser) {
+      if (!getStoredUser()) {
         setUser(null);
       }
     } finally {
@@ -72,16 +72,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const storedUser = getStoredUser();
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<void> => {
+    setError(null);
     try {
-      setError(null);
       const result = await laravelApi.login(email, password);
       setUser(result.user);
-      return true;
     } catch (err: any) {
       const message = err.response?.data?.message || err.message || 'Login failed';
       setError(message);
-      return false;
+      throw new Error(message);
     }
   };
 
@@ -91,16 +90,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     password_confirmation: string;
     first_name?: string;
     last_name?: string;
-  }): Promise<boolean> => {
+  }): Promise<void> => {
+    setError(null);
     try {
-      setError(null);
       const newUser = await laravelApi.register(data);
       setUser(newUser);
-      return true;
     } catch (err: any) {
       const message = err.response?.data?.message || err.message || 'Registration failed';
       setError(message);
-      return false;
+      throw new Error(message);
     }
   };
 

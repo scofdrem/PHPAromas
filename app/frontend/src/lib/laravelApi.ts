@@ -118,7 +118,7 @@ class LaravelApiClient {
   constructor() {
     this.client = axios.create({
       baseURL: `${getAPIBaseURL()}/api`,
-      withCredentials: true,
+      withCredentials: false, // JWT auth uses Authorization header, not cookies
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -169,16 +169,25 @@ class LaravelApiClient {
     last_name?: string;
   }): Promise<User> {
     const response = await this.client.post('/auth/register', data);
-    const user = this.extractData<User>(response);
-    setToken(response.data.token);
+    // Backend register returns: { data: {...user...}, token: "...", message: "..." }
+    const payload = response.data;
+    const user = payload.data || payload.user;
+    const token = payload.token || payload.access_token;
+    setToken(token);
     setStoredUser(user);
     return user;
   }
 
   async login(email: string, password: string): Promise<{ user: User; token: string }> {
     const response = await this.client.post('/auth/login', { email, password });
-    const user = this.extractData<User>(response.data);
-    const token = response.data.token;
+    // Backend login returns: { data: {...user...}, token: "...", message: "..." }
+    const payload = response.data;
+    const token = payload.token || payload.access_token;
+    // payload.data is the user object directly (not nested under 'user')
+    const user = payload.data || payload.user;
+    if (!user || !token) {
+      throw new Error('Invalid response from login endpoint');
+    }
     setToken(token);
     setStoredUser(user);
     return { user, token };

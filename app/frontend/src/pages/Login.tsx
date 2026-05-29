@@ -21,11 +21,10 @@ export default function Login() {
     setLoading(true);
 
     try {
-      let success: boolean;
       if (isLogin) {
-        success = await login(email, password);
+        await login(email, password);
       } else {
-        success = await register({
+        await register({
           email,
           password,
           password_confirmation: passwordConfirm,
@@ -34,9 +33,7 @@ export default function Login() {
         });
       }
 
-      if (success) {
-        navigate('/');
-      }
+      navigate('/');
     } catch (err: any) {
       setError(err.message || (isLogin ? 'Login failed' : 'Registration failed'));
     } finally {

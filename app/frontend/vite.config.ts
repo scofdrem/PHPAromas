@@ -5,7 +5,6 @@ import { fileURLToPath } from 'url';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 import { viteSourceLocator } from '@metagptx/vite-plugin-source-locator';
-import { atoms } from '@metagptx/web-sdk/plugins';
 import { vitePrerenderPlugin } from 'vite-prerender-plugin';
 import Sitemap from 'vite-plugin-sitemap';
 import { getBlogRoutes } from './prerender/blog-routes.js';
@@ -31,17 +30,17 @@ export default defineConfig(({ command }) => {
   const blogPrerenderRoutes = command === 'build' ? getBlogRoutes() : [];
 
   return {
+    root: path.resolve(__dirname),
     plugins: [
       viteSourceLocator({
         prefix: 'mgx', // Prefix used to identify source locations; do not change.
       }),
       react(),
-      atoms(),
       Sitemap({
         hostname: 'https://atoms.template.com',
         lastmod: getSitemapLastmod(),
         readable: true,
-        generateRobotsTxt: true,
+        generateRobotsTxt: false,
       }),
       ...(blogPrerenderRoutes.length > 0
         ? vitePrerenderPlugin({
@@ -61,8 +60,19 @@ export default defineConfig(({ command }) => {
       port: parseInt(process.env.VITE_PORT || '3000'),
       proxy: {
         '/api': {
-          target: `http://localhost:8000`,
+          target: 'http://127.0.0.1:8000',
           changeOrigin: true,
+          configure: (proxy, _options) => {
+            proxy.on('error', (err, _req, _res) => {
+              console.log('proxy error', err);
+            });
+            proxy.on('proxyReq', (proxyReq, req, _res) => {
+              console.log('Send Request to ' + req.method + ' ' + req.url);
+            });
+            proxy.on('proxyRes', (proxyRes, req, _res) => {
+              console.log('RECEIVED from ' + req.method + ' ' + req.url + ' Status: ' + proxyRes.statusCode);
+            });
+          },
         },
       },
       watch: { usePolling: true, interval: 600 },
@@ -70,7 +80,7 @@ export default defineConfig(({ command }) => {
     },
     base: command === 'build' ? '/build/' : '/',
     build: {
-      outDir: path.resolve(__dirname, '../../laravel-backend/public/build'),
+      outDir: path.resolve(__dirname, '../../public/build'),
       emptyOutDir: true,
       rollupOptions: {
         output: {

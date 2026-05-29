@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Traits\ApiResponseTrait;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,10 +11,8 @@ use Tymon\JWTAuth\Facades\JWTAuth;
 
 class AuthController extends Controller
 {
-    use ApiResponseTrait;
-
     /**
-     * Sign in with email and password (matches Python: POST /api/v1/auth/sign-in/email).
+     * Sign in with email and password.
      */
     public function signInEmail(Request $request): JsonResponse
     {
@@ -25,25 +22,27 @@ class AuthController extends Controller
         ]);
 
         if (! $token = JWTAuth::attempt($validated)) {
-            return $this->errorResponse('Invalid credentials', 401);
+            return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
         $user = auth()->user();
 
         if (! $user->is_active) {
-            return $this->errorResponse('Account is deactivated', 403);
+            return response()->json(['message' => 'Account is deactivated'], 403);
         }
 
-        return $this->successResponse([
-            'access_token' => $token,
-            'token_type' => 'bearer',
-            'expires_in' => JWTAuth::factory()->getTTL() * 60,
-            'user' => $user,
+        return response()->json([
+            'data' => [
+                'access_token' => $token,
+                'token_type' => 'bearer',
+                'expires_in' => JWTAuth::factory()->getTTL() * 60,
+                'user' => $user,
+            ],
         ]);
     }
 
     /**
-     * Sign up with email and password (matches Python: POST /api/v1/auth/sign-up/email).
+     * Sign up with email and password.
      */
     public function signUpEmail(Request $request): JsonResponse
     {
@@ -65,21 +64,23 @@ class AuthController extends Controller
             'is_active' => true,
         ]);
 
-        // Assign default 'user' role
         $user->assignRole('user');
 
         $token = JWTAuth::fromUser($user);
 
-        return $this->successResponse([
-            'access_token' => $token,
-            'token_type' => 'bearer',
-            'expires_in' => JWTAuth::factory()->getTTL() * 60,
-            'user' => $user,
-        ], 'User registered successfully', 201);
+        return response()->json([
+            'data' => [
+                'access_token' => $token,
+                'token_type' => 'bearer',
+                'expires_in' => JWTAuth::factory()->getTTL() * 60,
+                'user' => $user,
+            ],
+            'message' => 'User registered successfully',
+        ], 201);
     }
 
     /**
-     * Sign in with username (alternative login method).
+     * Sign in with username.
      */
     public function signInUsername(Request $request): JsonResponse
     {
@@ -88,26 +89,27 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        // Try to find user by email or first_name (username)
         $user = User::where('email', $validated['username'])
             ->orWhere('first_name', $validated['username'])
             ->first();
 
         if (! $user || ! Hash::check($validated['password'], $user->password)) {
-            return $this->errorResponse('Invalid credentials', 401);
+            return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
         if (! $user->is_active) {
-            return $this->errorResponse('Account is deactivated', 403);
+            return response()->json(['message' => 'Account is deactivated'], 403);
         }
 
         $token = JWTAuth::fromUser($user);
 
-        return $this->successResponse([
-            'access_token' => $token,
-            'token_type' => 'bearer',
-            'expires_in' => JWTAuth::factory()->getTTL() * 60,
-            'user' => $user,
+        return response()->json([
+            'data' => [
+                'access_token' => $token,
+                'token_type' => 'bearer',
+                'expires_in' => JWTAuth::factory()->getTTL() * 60,
+                'user' => $user,
+            ],
         ]);
     }
 
@@ -124,57 +126,80 @@ class AuthController extends Controller
      */
     public function login(Request $request): JsonResponse
     {
-        return $this->signInEmail($request);
+        $validated = $request->validate([
+            'email' => 'required|string|email',
+            'password' => 'required|string',
+        ]);
+
+        if (! $token = JWTAuth::attempt($validated)) {
+            return response()->json(['message' => 'Invalid credentials'], 401);
+        }
+
+        $user = auth()->user();
+
+        if (! $user->is_active) {
+            return response()->json(['message' => 'Account is deactivated'], 403);
+        }
+
+        return response()->json([
+            'data' => $user,
+            'token' => $token,
+            'message' => 'Login successful',
+        ]);
     }
 
     /**
-     * Get the authenticated user (matches Python: GET /api/v1/auth/me).
+     * Get the authenticated user.
      */
     public function me(): JsonResponse
     {
         $user = auth()->user();
 
-        return $this->successResponse([
-            'id' => $user->id,
-            'email' => $user->email,
-            'first_name' => $user->first_name,
-            'last_name' => $user->last_name,
-            'name' => $user->full_name,
-            'role' => $user->roles->first()?->name ?? 'user',
-            'is_active' => $user->is_active,
-            'created_at' => $user->created_at,
+        return response()->json([
+            'data' => [
+                'id' => $user->id,
+                'email' => $user->email,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'name' => $user->full_name,
+                'role' => $user->roles->first()?->name ?? 'user',
+                'is_active' => $user->is_active,
+                'created_at' => $user->created_at,
+            ],
         ]);
     }
 
     /**
-     * Refresh a token (matches Python: POST /api/v1/auth/refresh).
+     * Refresh a token.
      */
     public function refresh(): JsonResponse
     {
         try {
             $token = JWTAuth::refresh();
 
-            return $this->successResponse([
-                'access_token' => $token,
-                'token_type' => 'bearer',
-                'expires_in' => JWTAuth::factory()->getTTL() * 60,
+            return response()->json([
+                'data' => [
+                    'access_token' => $token,
+                    'token_type' => 'bearer',
+                    'expires_in' => JWTAuth::factory()->getTTL() * 60,
+                ],
             ]);
         } catch (\Exception $e) {
-            return $this->errorResponse('Could not refresh token', 401);
+            return response()->json(['message' => 'Could not refresh token'], 401);
         }
     }
 
     /**
-     * Log the user out (invalidate the token).
+     * Log the user out.
      */
     public function logout(): JsonResponse
     {
         try {
             JWTAuth::invalidate(JWTAuth::getToken());
 
-            return $this->successResponse(null, 'Successfully logged out');
+            return response()->json(['message' => 'Successfully logged out']);
         } catch (\Exception $e) {
-            return $this->errorResponse('Could not logout', 500);
+            return response()->json(['message' => 'Could not logout'], 500);
         }
     }
 }
