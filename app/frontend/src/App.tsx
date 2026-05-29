@@ -10,6 +10,8 @@ import Admin from './pages/Admin';
 import AuthCallback from './pages/AuthCallback';
 import AuthError from './pages/AuthError';
 import Login from './pages/Login';
+import Sessions from './pages/Sessions';
+import ResetPassword from './pages/ResetPassword';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { initSiteContentFromBackend } from '@/data/siteContent';
 import { initProductsFromBackend, initCategoriesFromBackend } from '@/data/productsStore';
@@ -34,6 +36,8 @@ const AppRoutes = () => {
     <Route path="/auth/callback" element={<AuthCallback />} />
     <Route path="/auth/error" element={<AuthError />} />
     <Route path="/login" element={<Login />} />
+    <Route path="/reset-password" element={<ResetPassword />} />
+    <Route path="/sessions" element={<Sessions />} />
     {/* MODULE_ROUTES_START */}
     {/* MODULE_ROUTES_END */}
   </Routes>

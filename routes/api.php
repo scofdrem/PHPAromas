@@ -10,6 +10,9 @@ use App\Http\Controllers\Api\SmtpSettingController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\StorageController;
 use App\Http\Controllers\Api\AppConfigController;
+use App\Http\Controllers\Api\LoginActivityController;
+use App\Http\Controllers\Api\PasswordResetController;
+use App\Http\Controllers\Api\SessionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -23,35 +26,30 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// ==================== FRONTEND COMPATIBLE AUTH ROUTES (no v1 prefix) ====================
-Route::prefix('auth')->group(function () {
-    Route::post('login', [AuthController::class, 'login']);
-    Route::post('register', [AuthController::class, 'register']);
-    Route::get('me', [AuthController::class, 'me'])->middleware('auth:api');
-    Route::post('me', [AuthController::class, 'me'])->middleware('auth:api');
-    Route::post('logout', [AuthController::class, 'logout'])->middleware('auth:api');
-    Route::post('refresh', [AuthController::class, 'refresh'])->middleware('auth:api');
-});
-
 Route::prefix('v1')->group(function () {
 
     // ==================== AUTH ROUTES ====================
     Route::prefix('auth')->group(function () {
-        // Public auth routes (matching Python backend pattern)
-        Route::post('sign-in/email', [AuthController::class, 'signInEmail']);
-        Route::post('sign-up/email', [AuthController::class, 'signUpEmail']);
-        Route::post('sign-in/username', [AuthController::class, 'signInUsername'])->name('login');
-        
-        // Legacy endpoints for frontend compatibility
-        Route::post('login', [AuthController::class, 'login']);
-        Route::post('register', [AuthController::class, 'register']);
+        // Public auth routes
+        Route::post('sign-in/email', [AuthController::class, 'signInEmail'])->middleware(['throttle:5,1', 'auth.cookie']);
+        Route::post('sign-up/email', [AuthController::class, 'signUpEmail'])->middleware(['throttle:3,1', 'auth.cookie']);
 
         // Protected auth routes
-        Route::middleware('auth:api')->group(function () {
+        Route::middleware(['auth:api', 'verify.fingerprint'])->group(function () {
             Route::get('me', [AuthController::class, 'me']);
+            Route::post('me', [AuthController::class, 'me']);
             Route::post('logout', [AuthController::class, 'logout']);
-            Route::post('refresh', [AuthController::class, 'refresh']);
+            Route::get('sessions', [SessionController::class, 'index']);
+            Route::delete('sessions', [SessionController::class, 'revoke']);
+            Route::post('sessions/revoke-others', [SessionController::class, 'revokeOthers']);
         });
+
+        // Refresh route uses custom middleware that accepts expired tokens
+        Route::post('refresh', [AuthController::class, 'refresh'])->middleware(['auth.or.expired', 'auth.cookie']);
+
+        // Password reset routes
+        Route::post('forgot-password', [PasswordResetController::class, 'sendResetLink']);
+        Route::post('reset-password', [PasswordResetController::class, 'resetPassword']);
     });
 
     // ==================== ENTITY ROUTES (matching /api/v1/entities/* pattern) ====================
@@ -65,7 +63,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/{id}', [ProductController::class, 'show']);
 
             // Protected routes (admin)
-            Route::middleware('auth:api')->group(function () {
+            Route::middleware(['auth:api', 'verify.fingerprint'])->group(function () {
                 Route::middleware('role:administrator')->group(function () {
                     Route::post('/', [ProductController::class, 'store']);
                     Route::post('/batch', [ProductController::class, 'batchStore']);
@@ -121,7 +119,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/', [InquiryController::class, 'store']);
 
             // Protected routes (admin)
-            Route::middleware('auth:api')->group(function () {
+            Route::middleware(['auth:api', 'verify.fingerprint'])->group(function () {
                 Route::middleware('role:administrator')->group(function () {
                     Route::get('/', [InquiryController::class, 'index']);
                     Route::get('/{id}', [InquiryController::class, 'show']);
@@ -168,7 +166,7 @@ Route::prefix('v1')->group(function () {
     });
 
     // ==================== ADMIN ROUTES ====================
-    Route::prefix('admin')->middleware('auth:api')->group(function () {
+    Route::prefix('admin')->middleware(['auth:api', 'verify.fingerprint'])->group(function () {
         Route::middleware('role:administrator')->group(function () {
             // Account management
             Route::get('account', [AdminController::class, 'account']);
@@ -180,6 +178,9 @@ Route::prefix('v1')->group(function () {
             // SMTP settings
             Route::get('smtp', [SmtpSettingController::class, 'index']);
             Route::put('smtp', [SmtpSettingController::class, 'update']);
+
+            // Login activities
+            Route::get('login-activities', [LoginActivityController::class, 'index']);
 
             // User management
             Route::get('users', [AdminController::class, 'users']);

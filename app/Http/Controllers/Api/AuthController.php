@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\LoginActivityService;
+use App\Traits\HasTokenFingerprint;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -11,6 +13,14 @@ use Tymon\JWTAuth\Facades\JWTAuth;
 
 class AuthController extends Controller
 {
+    use HasTokenFingerprint;
+
+    private LoginActivityService $loginActivityService;
+
+    public function __construct(LoginActivityService $loginActivityService)
+    {
+        $this->loginActivityService = $loginActivityService;
+    }
     /**
      * Sign in with email and password.
      */
@@ -21,15 +31,46 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        if (! $token = JWTAuth::attempt($validated)) {
-            return response()->json(['message' => 'Invalid credentials'], 401);
+        $user = User::where('email', $validated['email'])->first();
+
+        if (! $user) {
+            $this->loginActivityService->recordFailure($request, null, 'invalid_credentials');
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid credentials.',
+            ], 401);
         }
 
-        $user = auth()->user();
+        if ($user->locked_until && $user->locked_until->isFuture()) {
+            $this->loginActivityService->recordFailure($request, $user, 'account_locked');
+            return response()->json([
+                'success' => false,
+                'message' => 'Account locked. Try again later.',
+            ], 429);
+        }
+
+        $fingerprint = $this->generateTokenFingerprint($request);
+        $customClaims = ['fpt' => $fingerprint];
+
+        if (! $token = JWTAuth::claims($customClaims)->attempt($validated)) {
+            $this->recordFailedLogin($user, $request);
+            $this->loginActivityService->recordFailure($request, $user, 'invalid_credentials');
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid credentials.',
+            ], 401);
+        }
 
         if (! $user->is_active) {
-            return response()->json(['message' => 'Account is deactivated'], 403);
+            $this->loginActivityService->recordFailure($request, $user, 'account_deactivated');
+            return response()->json([
+                'success' => false,
+                'message' => 'Account is deactivated.',
+            ], 403);
         }
+
+        $this->resetFailedLogin($user);
+        $this->loginActivityService->recordSuccess($request, $user);
 
         return response()->json([
             'data' => [
@@ -66,7 +107,8 @@ class AuthController extends Controller
 
         $user->assignRole('user');
 
-        $token = JWTAuth::fromUser($user);
+        $fingerprint = $this->generateTokenFingerprint($request);
+        $token = JWTAuth::fromUser($user, ['fpt' => $fingerprint]);
 
         return response()->json([
             'data' => [
@@ -77,75 +119,6 @@ class AuthController extends Controller
             ],
             'message' => 'User registered successfully',
         ], 201);
-    }
-
-    /**
-     * Sign in with username.
-     */
-    public function signInUsername(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'username' => 'required|string',
-            'password' => 'required|string',
-        ]);
-
-        $user = User::where('email', $validated['username'])
-            ->orWhere('first_name', $validated['username'])
-            ->first();
-
-        if (! $user || ! Hash::check($validated['password'], $user->password)) {
-            return response()->json(['message' => 'Invalid credentials'], 401);
-        }
-
-        if (! $user->is_active) {
-            return response()->json(['message' => 'Account is deactivated'], 403);
-        }
-
-        $token = JWTAuth::fromUser($user);
-
-        return response()->json([
-            'data' => [
-                'access_token' => $token,
-                'token_type' => 'bearer',
-                'expires_in' => JWTAuth::factory()->getTTL() * 60,
-                'user' => $user,
-            ],
-        ]);
-    }
-
-    /**
-     * Register a new user (legacy endpoint).
-     */
-    public function register(Request $request): JsonResponse
-    {
-        return $this->signUpEmail($request);
-    }
-
-    /**
-     * Login user (legacy endpoint).
-     */
-    public function login(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'email' => 'required|string|email',
-            'password' => 'required|string',
-        ]);
-
-        if (! $token = JWTAuth::attempt($validated)) {
-            return response()->json(['message' => 'Invalid credentials'], 401);
-        }
-
-        $user = auth()->user();
-
-        if (! $user->is_active) {
-            return response()->json(['message' => 'Account is deactivated'], 403);
-        }
-
-        return response()->json([
-            'data' => $user,
-            'token' => $token,
-            'message' => 'Login successful',
-        ]);
     }
 
     /**
@@ -172,10 +145,11 @@ class AuthController extends Controller
     /**
      * Refresh a token.
      */
-    public function refresh(): JsonResponse
+    public function refresh(Request $request): JsonResponse
     {
         try {
-            $token = JWTAuth::refresh();
+            $fingerprint = $this->generateTokenFingerprint($request);
+            $token = JWTAuth::claims(['fpt' => $fingerprint])->refresh();
 
             return response()->json([
                 'data' => [
@@ -185,7 +159,10 @@ class AuthController extends Controller
                 ],
             ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Could not refresh token'], 401);
+            return response()->json([
+                'success' => false,
+                'message' => 'Session expired. Please log in again.',
+            ], 401);
         }
     }
 
@@ -197,9 +174,39 @@ class AuthController extends Controller
         try {
             JWTAuth::invalidate(JWTAuth::getToken());
 
-            return response()->json(['message' => 'Successfully logged out']);
+            return response()->json([
+                'success' => true,
+                'message' => 'Successfully logged out',
+            ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Could not logout'], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'An unexpected error occurred.',
+            ], 500);
+        }
+    }
+
+    /**
+     * Record a failed login attempt and lock account if threshold reached.
+     */
+    private function recordFailedLogin(User $user, Request $request): void
+    {
+        $user->failed_login_attempts++;
+        if ($user->failed_login_attempts >= 5) {
+            $user->locked_until = now()->addMinutes(30);
+        }
+        $user->save();
+    }
+
+    /**
+     * Reset failed login counter on successful login.
+     */
+    private function resetFailedLogin(User $user): void
+    {
+        if ($user->failed_login_attempts > 0 || $user->locked_until) {
+            $user->failed_login_attempts = 0;
+            $user->locked_until = null;
+            $user->save();
         }
     }
 }

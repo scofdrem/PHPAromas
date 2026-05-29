@@ -42,6 +42,7 @@ class Kernel extends HttpKernel
             // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             \Illuminate\Routing\Middleware\ThrottleRequests::class.':api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\ReadAuthCookie::class,
         ],
     ];
 
@@ -66,5 +67,9 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'check.role' => \App\Http\Middleware\CheckRole::class,
         'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
+        'auth.or.expired' => \App\Http\Middleware\EnsureTokenIsValidOrExpired::class,
+        'auth.cookie' => \App\Http\Middleware\SetAuthCookie::class,
+        'read.auth.cookie' => \App\Http\Middleware\ReadAuthCookie::class,
+        'verify.fingerprint' => \App\Http\Middleware\VerifyTokenFingerprint::class,
     ];
 }

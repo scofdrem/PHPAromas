@@ -84,22 +84,9 @@ export interface AdminStats {
 }
 
 // ─── Token Management ────────────────────────────────────────────────────────
+// Now using httpOnly cookies, so tokens are sent automatically by the browser
 
-const TOKEN_KEY = 'laravel_token';
 const USER_KEY = 'laravel_user';
-
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-export function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
-}
-
-export function removeToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-}
 
 export function getStoredUser(): User | null {
   const stored = localStorage.getItem(USER_KEY);
@@ -110,6 +97,10 @@ export function setStoredUser(user: User): void {
   localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
+export function removeStoredUser(): void {
+  localStorage.removeItem(USER_KEY);
+}
+
 // ─── API Client ──────────────────────────────────────────────────────────────
 
 class LaravelApiClient {
@@ -118,7 +109,7 @@ class LaravelApiClient {
   constructor() {
     this.client = axios.create({
       baseURL: `${getAPIBaseURL()}/api`,
-      withCredentials: false, // JWT auth uses Authorization header, not cookies
+      withCredentials: true, // Send httpOnly cookies automatically
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -126,26 +117,12 @@ class LaravelApiClient {
       timeout: 30000,
     });
 
-    // Request interceptor - attach token
-    this.client.interceptors.request.use(
-      (config) => {
-        const token = getToken();
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
-
-    // Response interceptor - handle errors
+    // Response interceptor - handle 401 errors
     this.client.interceptors.response.use(
       (response) => response,
-      (error: AxiosError) => {
+      async (error: AxiosError) => {
         if (error.response?.status === 401) {
-          // Token expired or invalid
-          removeToken();
-          // Optionally redirect to login
+          removeStoredUser();
           if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
             window.location.href = '/login';
           }
@@ -168,42 +145,33 @@ class LaravelApiClient {
     first_name?: string;
     last_name?: string;
   }): Promise<User> {
-    const response = await this.client.post('/auth/register', data);
-    // Backend register returns: { data: {...user...}, token: "...", message: "..." }
-    const payload = response.data;
-    const user = payload.data || payload.user;
-    const token = payload.token || payload.access_token;
-    setToken(token);
-    setStoredUser(user);
-    return user;
+    const response = await this.client.post('/v1/auth/sign-up/email', data);
+    const payload = response.data.data;
+    setStoredUser(payload.user);
+    return payload.user;
   }
 
-  async login(email: string, password: string): Promise<{ user: User; token: string }> {
-    const response = await this.client.post('/auth/login', { email, password });
-    // Backend login returns: { data: {...user...}, token: "...", message: "..." }
-    const payload = response.data;
-    const token = payload.token || payload.access_token;
-    // payload.data is the user object directly (not nested under 'user')
-    const user = payload.data || payload.user;
-    if (!user || !token) {
+  async login(email: string, password: string): Promise<User> {
+    const response = await this.client.post('/v1/auth/sign-in/email', { email, password });
+    const payload = response.data.data;
+    if (!payload?.user) {
       throw new Error('Invalid response from login endpoint');
     }
-    setToken(token);
-    setStoredUser(user);
-    return { user, token };
+    setStoredUser(payload.user);
+    return payload.user;
   }
 
   async logout(): Promise<void> {
     try {
-      await this.client.post('/auth/logout');
+      await this.client.post('/v1/auth/logout');
     } finally {
-      removeToken();
+      removeStoredUser();
     }
   }
 
   async getMe(): Promise<User | null> {
     try {
-      const response = await this.client.get('/auth/me');
+      const response = await this.client.get('/v1/auth/me');
       return this.extractData<User>(response);
     } catch (error) {
       if ((error as AxiosError).response?.status === 401) {
@@ -445,6 +413,39 @@ class LaravelApiClient {
 
   async deleteUser(userId: number): Promise<void> {
     await this.client.delete(`/admin/users/${userId}`);
+  }
+
+  // ─── Password Reset ────────────────────────────────────────────────────────
+
+  async sendPasswordResetLink(email: string): Promise<{ success: boolean; message: string; dev_token?: string }> {
+    const response = await this.client.post('/v1/auth/forgot-password', { email });
+    return this.extractData(response);
+  }
+
+  async resetPassword(token: string, password: string, password_confirmation: string): Promise<{ success: boolean; message: string }> {
+    const response = await this.client.post('/v1/auth/reset-password', {
+      token,
+      password,
+      password_confirmation,
+    });
+    return this.extractData(response);
+  }
+
+  // ─── Sessions ──────────────────────────────────────────────────────────────
+
+  async getSessions(): Promise<any[]> {
+    const response = await this.client.get('/v1/auth/sessions');
+    return response.data.data || [];
+  }
+
+  async revokeSession(tokenId: string): Promise<void> {
+    await this.client.delete('/v1/auth/sessions', {
+      data: { token_id: tokenId },
+    });
+  }
+
+  async revokeOtherSessions(): Promise<void> {
+    await this.client.post('/v1/auth/sessions/revoke-others');
   }
 
   // ─── Media Upload ────────────────────────────────────────────────────────

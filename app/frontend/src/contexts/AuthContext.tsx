@@ -61,10 +61,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     } catch (err) {
       console.log('Auth check failed:', err);
-      // Don't clear user on network errors if we have a stored user
-      if (!getStoredUser()) {
-        setUser(null);
-      }
+      // Clear stored auth state on any failure to avoid stale sessions
+      localStorage.removeItem('laravel_user');
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -75,8 +74,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (email: string, password: string): Promise<void> => {
     setError(null);
     try {
-      const result = await laravelApi.login(email, password);
-      setUser(result.user);
+      const user = await laravelApi.login(email, password);
+      setUser(user);
     } catch (err: any) {
       const message = err.response?.data?.message || err.message || 'Login failed';
       setError(message);
