@@ -90,16 +90,6 @@ class User extends Authenticatable implements JWTSubject
     }
 
     /**
-     * Check if user is a manager.
-     *
-     * @return bool
-     */
-    public function isManager(): bool
-    {
-        return $this->hasRole('manager');
-    }
-
-    /**
      * Check if user is a regular user.
      *
      * @return bool

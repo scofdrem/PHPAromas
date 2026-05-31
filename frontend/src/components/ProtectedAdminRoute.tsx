@@ -9,11 +9,26 @@ interface ProtectedAdminRouteProps {
   children: React.ReactNode;
 }
 
+// Dev-only bypass: set VITE_DEV_ADMIN_BYPASS=true in .env.development
+const DEV_ADMIN_BYPASS = import.meta.env.VITE_DEV_ADMIN_BYPASS === 'true';
+
 const ProtectedAdminRoute: React.FC<ProtectedAdminRouteProps> = ({
   children,
 }) => {
   const { user, loading, isAdmin, login } = useAuth();
   const location = useLocation();
+
+  // Dev bypass: skip auth checks when VITE_DEV_ADMIN_BYPASS=true
+  if (DEV_ADMIN_BYPASS) {
+    return (
+      <>
+        <div className="bg-orange-600/90 text-white text-xs text-center py-1 px-4 font-medium">
+          DEV MODE: Admin bypass active
+        </div>
+        {children}
+      </>
+    );
+  }
 
   // Loading state
   if (loading) {

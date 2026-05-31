@@ -117,14 +117,22 @@ class LaravelApiClient {
       timeout: 30000,
     });
 
-    // Response interceptor - handle 401 errors
+    // Response interceptor - handle 401 errors (but not for /me endpoint)
     this.client.interceptors.response.use(
       (response) => response,
       async (error: AxiosError) => {
         if (error.response?.status === 401) {
-          removeStoredUser();
-          if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-            window.location.href = '/login';
+          // Don't redirect for /me endpoint - let the caller handle it
+          const config = error.config as any;
+          const isMeEndpoint = config?.url?.includes('/v1/auth/me');
+          if (!isMeEndpoint) {
+            removeStoredUser();
+            if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+              window.location.href = '/login';
+            }
+          } else {
+            // Just clear stored user for /me 401, let getMe() return null
+            removeStoredUser();
           }
         }
         return Promise.reject(error);

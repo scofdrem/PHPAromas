@@ -56,90 +56,16 @@ get_local_ip() {
     echo "$ip"
 }
 
-# Check if port is available using multiple methods
+# Check if port is available using single fastest method
 is_port_available() {
     local port=$1
-    log_info "Checking port $port availability..." >&2
-
-    # Method 1: Use lsof to check for processes using the port
-    local lsof_available=true
+    
     if command -v lsof >/dev/null 2>&1; then
-        log_info "Using lsof to check port $port" >&2
-        local lsof_result
-        lsof_result=$(lsof -i :$port 2>&1)
-        log_info "lsof -i :$port result: '$lsof_result'" >&2
-        if lsof -i :$port >/dev/null 2>&1; then
-            lsof_available=false
-            log_info "lsof detected port $port is in use" >&2
-        else
-            log_info "lsof detected port $port is free" >&2
-        fi
+        ! lsof -Pi :$port -sTCP:LISTEN >/dev/null 2>&1
+    elif command -v ss >/dev/null 2>&1; then
+        ! ss -tlnp 2>/dev/null | grep -q ":$port "
     else
-        log_warning "lsof not available, skipping lsof check" >&2
-        lsof_available="skipped"
-    fi
-
-    # Method 2: Use nc to test port connectivity
-    local nc_available=true
-    if command -v nc >/dev/null 2>&1; then
-        log_info "Using nc to test port $port connectivity" >&2
-        local nc_result
-        nc_result=$(nc -z localhost $port 2>&1)
-        log_info "nc -z localhost $port result: '$nc_result'" >&2
-        if nc -z localhost $port 2>/dev/null; then
-            nc_available=false
-            log_info "nc detected port $port is in use" >&2
-        else
-            log_info "nc detected port $port is free" >&2
-        fi
-    else
-        log_warning "nc not available, skipping nc check" >&2
-        nc_available="skipped"
-    fi
-
-    # Method 3: Use netstat to check for processes using the port
-    local netstat_available=true
-    if command -v netstat >/dev/null 2>&1; then
-        log_info "Using netstat to check port $port" >&2
-        local netstat_result
-        netstat_result=$(netstat -an 2>&1 | grep ":$port ")
-        log_info "netstat -an | grep ':$port ' result: '$netstat_result'" >&2
-        if echo "$netstat_result" | grep -q ":$port "; then
-            netstat_available=false
-            log_info "netstat detected port $port is in use" >&2
-        else
-            log_info "netstat detected port $port is free" >&2
-        fi
-    else
-        log_warning "netstat not available, skipping netstat check" >&2
-        netstat_available="skipped"
-    fi
-
-    # Port is available only if all available methods agree it's free
-    local available_methods=0
-    local free_methods=0
-    
-    if [ "$lsof_available" != "skipped" ]; then
-        available_methods=$((available_methods + 1))
-        [ "$lsof_available" = true ] && free_methods=$((free_methods + 1))
-    fi
-    
-    if [ "$nc_available" != "skipped" ]; then
-        available_methods=$((available_methods + 1))
-        [ "$nc_available" = true ] && free_methods=$((free_methods + 1))
-    fi
-    
-    if [ "$netstat_available" != "skipped" ]; then
-        available_methods=$((available_methods + 1))
-        [ "$netstat_available" = true ] && free_methods=$((free_methods + 1))
-    fi
-
-    if [ $free_methods -eq $available_methods ] && [ $available_methods -gt 0 ]; then
-        log_info "Port $port is confirmed available by all methods (lsof: $lsof_available, nc: $nc_available, netstat: $netstat_available)" >&2
-        return 0
-    else
-        log_info "Port $port is not available (lsof: $lsof_available, nc: $nc_available, netstat: $netstat_available)" >&2
-        return 1
+        ! nc -z localhost $port 2>/dev/null
     fi
 }
 
@@ -838,18 +764,149 @@ process_env_with_placeholders_from_file() {
 }
 
 
-# Find available port pair with same offset
+# PID file for process tracking
+PID_FILE="$SCRIPT_DIR/.pids"
+
+# Save PIDs to file for cleanup
+save_pids() {
+    cat > "$PID_FILE" <<EOF
+BACKEND_PID=$BACKEND_PID
+FRONTEND_PID=$FRONTEND_PID
+TIMESTAMP=$(date +%s)
+EOF
+    log_debug "Saved PIDs to $PID_FILE"
+}
+
+# Load PIDs from file
+load_pids() {
+    if [ -f "$PID_FILE" ]; then
+        source "$PID_FILE"
+        log_info "Loaded PIDs: BACKEND_PID=$BACKEND_PID, FRONTEND_PID=$FRONTEND_PID"
+        return 0
+    fi
+    return 1
+}
+
+# Clean up stale PID file
+clean_stale_pids() {
+    if [ -f "$PID_FILE" ]; then
+        source "$PID_FILE"
+        local stale=false
+        if [ -n "$BACKEND_PID" ] && ! kill -0 "$BACKEND_PID" 2>/dev/null; then
+            log_info "Stale backend PID $BACKEND_PID found, cleaning up"
+            stale=true
+        fi
+        if [ -n "$FRONTEND_PID" ] && ! kill -0 "$FRONTEND_PID" 2>/dev/null; then
+            log_info "Stale frontend PID $FRONTEND_PID found, cleaning up"
+            stale=true
+        fi
+        if [ "$stale" = true ]; then
+            rm -f "$PID_FILE"
+        fi
+    fi
+}
+
+# Check if composer dependencies need installation
+needs_composer_install() {
+    [ ! -d "$BACKEND_DIR/vendor" ] && return 0
+    [ "$BACKEND_DIR/composer.lock" -nt "$BACKEND_DIR/vendor/composer/installed.json" ] 2>/dev/null && return 0
+    [ "$BACKEND_DIR/composer.json" -nt "$BACKEND_DIR/vendor/composer/installed.json" ] 2>/dev/null && return 0
+    return 1
+}
+
+# Check if npm/pnpm dependencies need installation
+needs_npm_install() {
+    [ ! -d "$FRONTEND_DIR/node_modules" ] && return 0
+    if [ -f "$FRONTEND_DIR/pnpm-lock.yaml" ]; then
+        [ "$FRONTEND_DIR/pnpm-lock.yaml" -nt "$FRONTEND_DIR/node_modules/.pnpm/lock.yaml" ] 2>/dev/null && return 0
+    fi
+    if [ -f "$FRONTEND_DIR/package-lock.json" ]; then
+        [ "$FRONTEND_DIR/package-lock.json" -nt "$FRONTEND_DIR/node_modules/.package-lock.json" ] 2>/dev/null && return 0
+    fi
+    [ "$FRONTEND_DIR/package.json" -nt "$FRONTEND_DIR/node_modules/.package-lock.json" ] 2>/dev/null && return 0
+    return 1
+}
+
+# Check if web-sdk needs update
+needs_web_sdk_install() {
+    [ ! -d "$FRONTEND_DIR/node_modules/@metagptx/web-sdk" ] && return 0
+    return 1
+}
+
+# Check if there are pending migrations
+has_pending_migrations() {
+    local pending
+    pending=$(cd "$BACKEND_DIR" && php artisan migrate:status --no-interaction 2>/dev/null | grep -c "No" || true)
+    [ "$pending" -gt 0 ] 2>/dev/null && return 0
+    return 1
+}
+
+# Wait for frontend dev server to be ready
+wait_for_frontend_health() {
+    local max_attempts=30
+    local attempt=1
+    local url="http://$LOCAL_IP:$FRONTEND_PORT"
+    
+    log_info "Waiting for frontend to be ready at $url..."
+    
+    while [ $attempt -le $max_attempts ]; do
+        if curl -f -s -o /dev/null "$url" 2>/dev/null; then
+            log_success "Frontend is ready"
+            return 0
+        fi
+        
+        if [ $((attempt % 10)) -eq 0 ]; then
+            log_info "Still waiting for frontend... (attempt $attempt/$max_attempts)"
+        fi
+        
+        sleep 1
+        attempt=$((attempt + 1))
+    done
+    
+    log_warning "Frontend did not become ready after $max_attempts attempts"
+    return 1
+}
+
+# Cache file for port persistence
+PORTS_CACHE_FILE="$SCRIPT_DIR/.ports"
+
+# Find available port pair with same offset (max 10 offsets)
 find_available_port_pair() {
     local backend_start=$1
     local frontend_start=$2
-    local max_offset=10000
+    local max_offset=10
     local offset=0
     
-    while [ $offset -le $max_offset ]; do
+    # Try cached ports first (skip scanning if still available)
+    if [ -f "$PORTS_CACHE_FILE" ]; then
+        local cached_bp=$(grep '^BACKEND_PORT=' "$PORTS_CACHE_FILE" | cut -d= -f2)
+        local cached_fp=$(grep '^FRONTEND_PORT=' "$PORTS_CACHE_FILE" | cut -d= -f2)
+        local cached_time=$(grep '^TIMESTAMP=' "$PORTS_CACHE_FILE" | cut -d= -f2)
+        local now=$(date +%s)
+        # Use cache if less than 24h old and ports still available
+        if [ -n "$cached_bp" ] && [ -n "$cached_fp" ] && [ -n "$cached_time" ]; then
+            local age=$(( now - cached_time ))
+            if [ $age -lt 86400 ] && is_port_available "$cached_bp" && is_port_available "$cached_fp"; then
+                log_info "Reusing cached ports: backend=$cached_bp frontend=$cached_fp"
+                echo "$cached_bp $cached_fp"
+                return 0
+            fi
+        fi
+        # Cache miss or stale
+        rm -f "$PORTS_CACHE_FILE"
+    fi
+    
+    while [ $offset -lt $max_offset ]; do
         local backend_port=$((backend_start + offset))
         local frontend_port=$((frontend_start + offset))
         
         if is_port_available $backend_port && is_port_available $frontend_port; then
+            # Save ports to cache
+            cat > "$PORTS_CACHE_FILE" <<EOF
+BACKEND_PORT=$backend_port
+FRONTEND_PORT=$frontend_port
+TIMESTAMP=$(date +%s)
+EOF
             echo "$backend_port $frontend_port"
             return 0
         fi
@@ -857,7 +914,7 @@ find_available_port_pair() {
         offset=$((offset + 1))
     done
     
-    log_error "No available port pair found in range $backend_start-$((backend_start + max_offset)) and $frontend_start-$((frontend_start + max_offset))"
+    log_error "No available port pair found in range $backend_start-$((backend_start + max_offset - 1)) and $frontend_start-$((frontend_start + max_offset - 1))"
     return 1
 }
 
@@ -992,6 +1049,12 @@ start_services_with_retry() {
         fi
 
         log_success "Frontend started (PID: $FRONTEND_PID, URL: http://$LOCAL_IP:$FRONTEND_PORT)"
+
+        # Wait for frontend dev server to be ready
+        wait_for_frontend_health
+
+        # Save PIDs for cleanup
+        save_pids
 
         # Both services started successfully
         return 0
@@ -1196,11 +1259,15 @@ main() {
     log_info "Setting up Laravel Backend..."
     cd "$BACKEND_DIR"
     
-    # Install PHP dependencies via Composer
+    # Install PHP dependencies via Composer (conditional)
     if [ -f "composer.json" ]; then
         if command -v composer >/dev/null 2>&1; then
-            log_info "Installing PHP dependencies via Composer..."
-            composer install --no-interaction
+            if needs_composer_install; then
+                log_info "Installing PHP dependencies via Composer..."
+                composer install --no-interaction --prefer-dist --optimize-autoloader
+            else
+                log_info "Composer dependencies up to date, skipping install"
+            fi
         elif [ -f "vendor/autoload.php" ]; then
             log_info "Composer dependencies already installed (vendor directory exists)"
         else
@@ -1222,17 +1289,30 @@ main() {
         php artisan key:generate --no-interaction || true
     fi
     
-    # Run Laravel migrations if database is configured
+    # Run Laravel migrations only if pending
     if [ -f "artisan" ]; then
-        log_info "Running Laravel migrations..."
-        php artisan migrate --force --no-interaction || log_warning "Migrations failed or database not configured"
+        if has_pending_migrations; then
+            log_info "Running Laravel migrations..."
+            php artisan migrate --force --no-interaction || log_warning "Migrations failed or database not configured"
+        else
+            log_info "No pending migrations, skipping"
+        fi
     fi
     
-    # Pre-install frontend dependencies
-    log_info "Pre-installing frontend dependencies..."
+    # Pre-install frontend dependencies (conditional)
     cd "$FRONTEND_DIR"
-    $PACKAGE_MANAGER install
-    $PACKAGE_MANAGER install @metagptx/web-sdk@latest
+    if needs_npm_install; then
+        log_info "Installing frontend dependencies..."
+        $PACKAGE_MANAGER install
+    else
+        log_info "Frontend dependencies up to date, skipping install"
+    fi
+    if needs_web_sdk_install; then
+        log_info "Installing @metagptx/web-sdk..."
+        $PACKAGE_MANAGER install @metagptx/web-sdk@latest
+    else
+        log_info "@metagptx/web-sdk already installed, skipping"
+    fi
     log_success "Frontend dependencies installed successfully"
     
     cd "$BACKEND_DIR"

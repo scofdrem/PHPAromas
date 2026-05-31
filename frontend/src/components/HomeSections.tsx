@@ -64,7 +64,7 @@ export function FeaturedProducts() {
             to="/catalogue"
             className="text-[#C69B56] text-xs tracking-[0.1em] uppercase hover:text-[#d4aa65] transition-colors"
           >
-            Все ароматы →
+            {content.sectionHeadings.featuredViewAll} →
           </Link>
         </div>
 
@@ -95,7 +95,7 @@ export function NewArrivals() {
             to="/catalogue?filter=new"
             className="text-[#C69B56] text-xs tracking-[0.1em] uppercase hover:text-[#d4aa65] transition-colors"
           >
-            Все новинки →
+            {content.sectionHeadings.newArrivalsViewAll} →
           </Link>
         </div>
 
@@ -155,30 +155,30 @@ export function About() {
           {/* Description */}
           <div className="bg-[#1A1A1A] border border-white/5 p-8 sm:p-10">
             <h3 className="text-[#C69B56] text-lg font-light tracking-[0.1em] uppercase mb-6">
-              {about.title}
+              {about?.title || ""}
             </h3>
             <p className="text-white/60 text-sm leading-relaxed mb-4">
-              {about.description1}
+              {about?.description1 || ""}
             </p>
             <p className="text-white/60 text-sm leading-relaxed mb-6">
-              {about.description2}
+              {about?.description2 || ""}
             </p>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <span className="text-[#C69B56]">📍</span>
-                <span className="text-white/50 text-sm">{about.location}</span>
+                <span className="text-white/50 text-sm">{about?.location || ""}</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-[#C69B56]">📞</span>
-                <span className="text-white/50 text-sm">{about.phone}</span>
+                <span className="text-white/50 text-sm">{about?.phone || ""}</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-[#C69B56]">✉️</span>
-                <span className="text-white/50 text-sm">{about.email}</span>
+                <span className="text-white/50 text-sm">{about?.email || ""}</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-[#C69B56]">🕐</span>
-                <span className="text-white/50 text-sm">{about.workingHours}</span>
+                <span className="text-white/50 text-sm">{about?.workingHours || ""}</span>
               </div>
             </div>
           </div>
@@ -187,7 +187,7 @@ export function About() {
           <div className="bg-[#1A1A1A] border border-white/5 overflow-hidden">
             <iframe
               title="Наше расположение"
-              src={about.mapUrl}
+              src={about?.mapUrl || ""}
               className="w-full h-full min-h-[350px] border-0"
               loading="lazy"
             />

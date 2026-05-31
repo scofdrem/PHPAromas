@@ -7,7 +7,27 @@ export interface Banner {
   image: string;
 }
 
+export interface NavItem {
+  name: string;
+  path: string;
+  order: number;
+}
+
 export interface SiteContent {
+  logo: string;
+  favicon: string;
+  pageTitle: string;
+  headerText: {
+    brandName: string;
+    subtitle: string;
+  };
+  headerVisibility: {
+    logo: boolean;
+    links: boolean;
+    search: boolean;
+    login: boolean;
+  };
+  navLinks: NavItem[];
   hero: {
     backgroundImage: string;
     subtitle: string;
@@ -16,26 +36,38 @@ export interface SiteContent {
     description: string;
     buttonText: string;
     buttonLink: string;
+    logoAlt: string;
   };
   sectionHeadings: {
     categories: string;
     featured: string;
     newArrivals: string;
     about: string;
+    featuredViewAll: string;
+    newArrivalsViewAll: string;
   };
   about: {
-    banners: Banner[];
-    title: string;
-    description1: string;
-    description2: string;
-    location: string;
-    phone: string;
-    email: string;
-    workingHours: string;
-    mapUrl: string;
+    banners?: Banner[];
+    title?: string;
+    description1?: string;
+    description2?: string;
+    location?: string;
+    phone?: string;
+    email?: string;
+    workingHours?: string;
+    mapUrl?: string;
   };
   footer: {
+    brandName: string;
+    subtitle: string;
     brandDescription: string;
+    navTitle: string;
+    brandsTitle: string;
+    contactsTitle: string;
+    telegramLabel: string;
+    viberLabel: string;
+    instagramLabel: string;
+    emailLabel: string;
     telegram: string;
     viber: string;
     instagram: string;
@@ -43,11 +75,33 @@ export interface SiteContent {
     phone: string;
     copyright: string;
     privacyPolicyText: string;
+    privacyPolicyUrl: string;
     offerText: string;
+    offerUrl: string;
+    footerLinks: NavItem[];
   };
 }
 
 export const defaultSiteContent: SiteContent = {
+  logo: "/logo.jpg",
+  favicon: "/favicon.ico",
+  pageTitle: "1000 Ароматов | Элитная парфюмерия на распив",
+  headerText: {
+    brandName: "1000 АРОМАТОВ",
+    subtitle: "ПАРФЮМ НА РАСПИВ",
+  },
+  headerVisibility: {
+    logo: true,
+    links: true,
+    search: true,
+    login: true,
+  },
+  navLinks: [
+    { name: "Каталог", path: "/catalogue", order: 0 },
+    { name: "Хиты продаж", path: "/catalogue?filter=featured", order: 1 },
+    { name: "Новинки", path: "/catalogue?filter=new", order: 2 },
+    { name: "О нас", path: "/#about", order: 3 },
+  ],
   hero: {
     backgroundImage:
       "https://images.unsplash.com/photo-1541643600914-78b084683601?w=1920&q=80",
@@ -55,15 +109,18 @@ export const defaultSiteContent: SiteContent = {
     headingLine1: "Мир элитных",
     headingLine2: "ароматов",
     description:
-      "Откройте для себя коллекцию нишевых и люксовых парфюмов в формате отливантов. Попробуйте легендарные ароматы от 2 мл.",
+      "Откройте для себя коллекцию нишевых и люксовых парфюмов в формате отликантов. Попробуйте легендарные ароматы от 2 мл.",
     buttonText: "Смотреть каталог",
     buttonLink: "/catalogue",
+    logoAlt: "1000 Ароматов",
   },
   sectionHeadings: {
     categories: "Категории",
     featured: "Хиты продаж",
     newArrivals: "Новинки",
     about: "О нас",
+    featuredViewAll: "Все хиты продаж →",
+    newArrivalsViewAll: "Все новинки →",
   },
   about: {
     banners: [
@@ -101,6 +158,8 @@ export const defaultSiteContent: SiteContent = {
       "https://www.openstreetmap.org/export/embed.html?bbox=27.4%2C53.85%2C27.7%2C53.97&layer=mapnik",
   },
   footer: {
+    brandName: "1000 АРОМАТОВ",
+    subtitle: "ПАРФЮМ НА РАСПИВ",
     brandDescription:
       "Интернет-магазин отливантов элитной парфюмерии. Оригинальные ароматы от 2 мл с доставкой по всей Беларуси.",
     telegram: "@1000aromatov",
@@ -110,7 +169,17 @@ export const defaultSiteContent: SiteContent = {
     phone: "+375 (29) 123-45-67",
     copyright: "© 2026 1000 АРОМАТОВ. Все права защищены.",
     privacyPolicyText: "Политика конфиденциальности",
+    privacyPolicyUrl: "",
     offerText: "Оферта",
+    offerUrl: "",
+    footerLinks: [],
+    navTitle: "Навигация",
+    brandsTitle: "Бренды",
+    contactsTitle: "Контакты",
+    telegramLabel: "Telegram",
+    viberLabel: "Viber",
+    instagramLabel: "Instagram",
+    emailLabel: "Email",
   },
 };
 
@@ -147,8 +216,24 @@ function migrateContent(data: Record<string, any>): SiteContent {
     about.banners = defaultSiteContent.about.banners;
   }
   data.about = about;
+  
+  // Migrate headerVisibility - add logo if missing
+  if (!data.headerVisibility) {
+    data.headerVisibility = defaultSiteContent.headerVisibility;
+  } else if (data.headerVisibility.logo === undefined) {
+    data.headerVisibility.logo = true;
+  }
+  
   // Ensure all top-level keys exist
-  return { ...defaultSiteContent, ...data };
+  const merged = { ...defaultSiteContent, ...data };
+  
+  // Merge nested objects properly
+  merged.headerText = { ...defaultSiteContent.headerText, ...(data.headerText || {}) };
+  merged.hero = { ...defaultSiteContent.hero, ...(data.hero || {}) };
+  merged.sectionHeadings = { ...defaultSiteContent.sectionHeadings, ...(data.sectionHeadings || {}) };
+  merged.footer = { ...defaultSiteContent.footer, ...(data.footer || {}) };
+  
+  return merged;
 }
 
 /** Load site content from backend into the reactive store (call once on app init) */

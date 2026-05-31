@@ -120,10 +120,8 @@ export async function fetchBrands(): Promise<Brand[]> {
 
 // ─── Site Content ───
 // The database stores site content as separate rows keyed by content_key:
-// "hero", "section_headings", "about", "footer"
+// "hero", "section_headings", "about", "footer", "logo", "favicon", "pageTitle", "headerVisibility"
 // Each row's content_value is a JSON string for that section.
-
-const CONTENT_KEYS = ["hero", "section_headings", "about", "footer"] as const;
 
 function keyToField(key: string): keyof SiteContent {
   if (key === "section_headings") return "sectionHeadings";
@@ -151,11 +149,10 @@ export async function fetchSiteContent(): Promise<SiteContent | null> {
       }
     }
 
-    // Validate all sections present
-    const hasAll = (["hero", "sectionHeadings", "about", "footer"] as const).every(
-      (k) => k in result
-    );
-    return hasAll ? (result as SiteContent) : null;
+    // Validate core sections present (optional fields fall back to defaults)
+    const coreKeys = ["hero", "sectionHeadings", "about", "footer"] as const;
+    const hasCore = coreKeys.every((k) => k in result);
+    return hasCore ? (result as SiteContent) : null;
   } catch (e) {
     console.error("Failed to fetch site content:", e);
     return null;
@@ -164,7 +161,10 @@ export async function fetchSiteContent(): Promise<SiteContent | null> {
 
 export async function saveSiteContent(content: SiteContent): Promise<boolean> {
   try {
-    const sections: (keyof SiteContent)[] = ["hero", "sectionHeadings", "about", "footer"];
+    const sections: (keyof SiteContent)[] = [
+      "logo", "favicon", "pageTitle", "headerVisibility",
+      "hero", "sectionHeadings", "about", "footer",
+    ];
 
     for (const field of sections) {
       const key = fieldToKey(field);

@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useDynamicBrands } from "@/data/brandsStore";
 import { useSiteContent } from "@/data/siteContent";
+import { PDFPopup } from "@/components/PDFPopup";
 
 function TelegramIcon() {
   return (
@@ -28,167 +30,207 @@ function InstagramIcon() {
 
 export default function Footer() {
   const content = useSiteContent();
-  const { footer } = content;
+  const { footer, navLinks } = content;
   const { brands } = useDynamicBrands();
 
+  const [pdfUrl, setPdfUrl] = useState("");
+  const [pdfTitle, setPdfTitle] = useState("");
+  const [pdfOpen, setPdfOpen] = useState(false);
+
+  const openPdf = (url: string, title: string) => {
+    setPdfUrl(url);
+    setPdfTitle(title);
+    setPdfOpen(true);
+  };
+
+  const closePdf = () => {
+    setPdfOpen(false);
+    setPdfUrl("");
+    setPdfTitle("");
+  };
+
   return (
-    <footer className="bg-[#0A0A0A] border-t border-white/5">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
-          {/* Brand */}
-          <div>
-            <Link to="/" className="flex items-center gap-3 mb-4">
-              <img
-                src="/logo.jpg"
-                alt="1000 АРОМАТОВ"
-                className="h-10 w-10 rounded-full object-cover"
-              />
-              <div>
-                <div className="text-[#C69B56] text-sm font-semibold tracking-[0.15em]">
-                  1000 АРОМАТОВ
+    <>
+      <footer className="bg-[#0A0A0A] border-t border-white/5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
+            {/* Brand */}
+            <div>
+              <Link to="/" className="flex items-center gap-3 mb-4">
+                <img
+                  src="/logo.jpg"
+                  alt="1000 АРОМАТОВ"
+                  className="h-10 w-10 rounded-full object-cover"
+                />
+                <div>
+                  <div className="text-[#C69B56] text-sm font-semibold tracking-[0.15em]">
+                    {footer.brandName}
+                  </div>
+                  <div className="text-[#C69B56]/50 text-[9px] tracking-[0.1em]">
+                    {footer.subtitle}
+                  </div>
                 </div>
-                <div className="text-[#C69B56]/50 text-[9px] tracking-[0.1em]">
-                  ПАРФЮМ НА РАСПИВ
-                </div>
-              </div>
-            </Link>
-            <p className="text-white/30 text-xs leading-relaxed">
-              {footer.brandDescription}
-            </p>
-          </div>
+              </Link>
+              <p className="text-white/30 text-xs leading-relaxed">
+                {footer.brandDescription}
+              </p>
+            </div>
 
-          {/* Navigation */}
-          <div>
-            <h4 className="text-[#C69B56] text-xs tracking-[0.15em] uppercase mb-4 font-medium">
-              Навигация
-            </h4>
-            <ul className="space-y-2">
-              {[
-                { name: "Каталог", path: "/catalogue" },
-                { name: "Хиты продаж", path: "/catalogue?filter=featured" },
-                { name: "Новинки", path: "/catalogue?filter=new" },
-                { name: "О нас", path: "/#about" },
-              ].map((link) => (
-                <li key={link.name}>
-                  <Link
-                    to={link.path}
-                    className="text-white/40 text-xs hover:text-[#C69B56] transition-colors"
+            {/* Navigation */}
+            <div>
+              <h4 className="text-[#C69B56] text-xs tracking-[0.15em] uppercase mb-4 font-medium">
+                {footer.navTitle}
+              </h4>
+              <ul className="space-y-2">
+                {navLinks.map((link) => (
+                  <li key={link.name}>
+                    <Link
+                      to={link.path}
+                      className="text-white/40 text-xs hover:text-[#C69B56] transition-colors"
+                    >
+                      {link.name}
+                    </Link>
+                  </li>
+                ))}
+                {footer.footerLinks.map((link) => (
+                  <li key={link.name}>
+                    <Link
+                      to={link.path}
+                      className="text-white/40 text-xs hover:text-[#C69B56] transition-colors"
+                    >
+                      {link.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Brands */}
+            <div>
+              <h4 className="text-[#C69B56] text-xs tracking-[0.15em] uppercase mb-4 font-medium">
+                {footer.brandsTitle}
+              </h4>
+              <ul className="space-y-2">
+                {brands.slice(0, 8).map((brand) => (
+                  <li key={brand.slug}>
+                    <Link
+                      to={`/catalogue?brand=${brand.slug}`}
+                      className="text-white/40 text-xs hover:text-[#C69B56] transition-colors"
+                    >
+                      {brand.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Contacts */}
+            <div>
+              <h4 className="text-[#C69B56] text-xs tracking-[0.15em] uppercase mb-4 font-medium">
+                {footer.contactsTitle}
+              </h4>
+              <ul className="space-y-3">
+                <li className="text-white/40 text-xs">
+                  <span className="text-white/60">{footer.telegramLabel}:</span>{" "}
+                  <a
+                    href={`https://t.me/${footer.telegram.replace("@", "")}`}
+                    className="hover:text-[#C69B56] transition-colors"
+                    target="_blank"
+                    rel="noopener noreferrer"
                   >
-                    {link.name}
-                  </Link>
+                    {footer.telegram}
+                  </a>
                 </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Brands */}
-          <div>
-            <h4 className="text-[#C69B56] text-xs tracking-[0.15em] uppercase mb-4 font-medium">
-              Бренды
-            </h4>
-            <ul className="space-y-2">
-              {brands.slice(0, 8).map((brand) => (
-                <li key={brand.slug}>
-                  <Link
-                    to={`/catalogue?brand=${brand.slug}`}
-                    className="text-white/40 text-xs hover:text-[#C69B56] transition-colors"
+                <li className="text-white/40 text-xs">
+                  <span className="text-white/60">{footer.viberLabel}:</span>{" "}
+                  <a
+                    href={`viber://chat?number=${footer.viber.replace(/[\s()-]/g, "")}`}
+                    className="hover:text-[#C69B56] transition-colors"
                   >
-                    {brand.name}
-                  </Link>
+                    {footer.viber}
+                  </a>
                 </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Contacts */}
-          <div>
-            <h4 className="text-[#C69B56] text-xs tracking-[0.15em] uppercase mb-4 font-medium">
-              Контакты
-            </h4>
-            <ul className="space-y-3">
-              <li className="text-white/40 text-xs">
-                <span className="text-white/60">Telegram:</span>{" "}
+                <li className="text-white/40 text-xs">
+                  <span className="text-white/60">{footer.instagramLabel}:</span>{" "}
+                  <a
+                    href={`https://instagram.com/${footer.instagram.replace("@", "")}`}
+                    className="hover:text-[#C69B56] transition-colors"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {footer.instagram}
+                  </a>
+                </li>
+                <li className="text-white/40 text-xs">
+                  <span className="text-white/60">{footer.emailLabel}:</span>{" "}
+                  <a
+                    href={`mailto:${footer.email}`}
+                    className="hover:text-[#C69B56] transition-colors"
+                  >
+                    {footer.email}
+                  </a>
+                </li>
+              </ul>
+              <div className="flex gap-3 mt-4">
                 <a
                   href={`https://t.me/${footer.telegram.replace("@", "")}`}
-                  className="hover:text-[#C69B56] transition-colors"
                   target="_blank"
                   rel="noopener noreferrer"
+                  className="w-8 h-8 flex items-center justify-center bg-white/5 border border-white/10 text-white/40 hover:border-[#C69B56]/30 hover:text-[#C69B56] transition-all duration-200"
                 >
-                  {footer.telegram}
+                  <TelegramIcon />
                 </a>
-              </li>
-              <li className="text-white/40 text-xs">
-                <span className="text-white/60">Viber:</span>{" "}
                 <a
                   href={`viber://chat?number=${footer.viber.replace(/[\s()-]/g, "")}`}
-                  className="hover:text-[#C69B56] transition-colors"
+                  className="w-8 h-8 flex items-center justify-center bg-white/5 border border-white/10 text-white/40 hover:border-[#C69B56]/30 hover:text-[#C69B56] transition-all duration-200"
                 >
-                  {footer.viber}
+                  <ViberIcon />
                 </a>
-              </li>
-              <li className="text-white/40 text-xs">
-                <span className="text-white/60">Instagram:</span>{" "}
                 <a
                   href={`https://instagram.com/${footer.instagram.replace("@", "")}`}
-                  className="hover:text-[#C69B56] transition-colors"
                   target="_blank"
                   rel="noopener noreferrer"
+                  className="w-8 h-8 flex items-center justify-center bg-white/5 border border-white/10 text-white/40 hover:border-[#C69B56]/30 hover:text-[#C69B56] transition-all duration-200"
                 >
-                  {footer.instagram}
+                  <InstagramIcon />
                 </a>
-              </li>
-              <li className="text-white/40 text-xs">
-                <span className="text-white/60">Email:</span>{" "}
-                <a
-                  href={`mailto:${footer.email}`}
-                  className="hover:text-[#C69B56] transition-colors"
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom */}
+          <div className="mt-12 pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-white/20 text-[11px]">
+              {footer.copyright}
+            </p>
+            <div className="flex gap-6">
+              {footer.privacyPolicyUrl && (
+                <button
+                  onClick={() => openPdf(footer.privacyPolicyUrl, footer.privacyPolicyText)}
+                  className="text-white/20 text-[11px] hover:text-white/40 transition-colors"
                 >
-                  {footer.email}
-                </a>
-              </li>
-            </ul>
-            <div className="flex gap-3 mt-4">
-              <a
-                href={`https://t.me/${footer.telegram.replace("@", "")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-8 h-8 flex items-center justify-center bg-white/5 border border-white/10 text-white/40 hover:border-[#C69B56]/30 hover:text-[#C69B56] transition-all duration-200"
-              >
-                <TelegramIcon />
-              </a>
-              <a
-                href={`viber://chat?number=${footer.viber.replace(/[\s()-]/g, "")}`}
-                className="w-8 h-8 flex items-center justify-center bg-white/5 border border-white/10 text-white/40 hover:border-[#C69B56]/30 hover:text-[#C69B56] transition-all duration-200"
-              >
-                <ViberIcon />
-              </a>
-              <a
-                href={`https://instagram.com/${footer.instagram.replace("@", "")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-8 h-8 flex items-center justify-center bg-white/5 border border-white/10 text-white/40 hover:border-[#C69B56]/30 hover:text-[#C69B56] transition-all duration-200"
-              >
-                <InstagramIcon />
-              </a>
+                  {footer.privacyPolicyText}
+                </button>
+              )}
+              {footer.offerUrl && (
+                <button
+                  onClick={() => openPdf(footer.offerUrl, footer.offerText)}
+                  className="text-white/20 text-[11px] hover:text-white/40 transition-colors"
+                >
+                  {footer.offerText}
+                </button>
+              )}
             </div>
           </div>
         </div>
+      </footer>
 
-        {/* Bottom */}
-        <div className="mt-12 pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-white/20 text-[11px]">
-            {footer.copyright}
-          </p>
-          <div className="flex gap-6">
-            <a href="#" className="text-white/20 text-[11px] hover:text-white/40 transition-colors">
-              {footer.privacyPolicyText}
-            </a>
-            <a href="#" className="text-white/20 text-[11px] hover:text-white/40 transition-colors">
-              {footer.offerText}
-            </a>
-          </div>
-        </div>
-      </div>
-    </footer>
+      <PDFPopup
+        url={pdfUrl}
+        title={pdfTitle}
+        isOpen={pdfOpen}
+        onClose={closePdf}
+      />
+    </>
   );
 }

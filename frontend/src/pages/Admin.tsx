@@ -33,9 +33,12 @@ type Tab =
   | "about"
   | "footer"
   | "categories"
-  | "account"
-  | "users"
   | "settings";
+
+type MainTab = "catalogue" | "landing" | "settings";
+type CatalogueSubTab = "products" | "brands" | "categories";
+type LandingSubTab = "home" | "footers";
+type HomeSection = "logo" | "hero" | "headings" | "about" | "navigation";
 
 interface AdminUser {
   id: string;
@@ -227,7 +230,16 @@ function Field({
 /* ─── Main Admin Component ─── */
 export default function Admin() {
   const siteContent = useSiteContent();
-  const [activeTab, setActiveTab] = useState<Tab>("products");
+  const [activeMainTab, setActiveMainTab] = useState<MainTab>("catalogue");
+  const [activeCatalogueSubTab, setActiveCatalogueSubTab] = useState<CatalogueSubTab>("products");
+  const [activeLandingSubTab, setActiveLandingSubTab] = useState<LandingSubTab>("home");
+  const [activeHomeSection, setActiveHomeSection] = useState<HomeSection>("hero");
+  // Derived active tab - used for backwards compat with existing content panels
+  const activeTab = activeMainTab === "catalogue"
+    ? activeCatalogueSubTab
+    : activeMainTab === "landing"
+    ? (activeLandingSubTab === "footers" ? "footer" : activeHomeSection)
+    : "settings";
 
   // Products state — from reactive store (persisted to backend)
   const { products: productList } = useProductStore();
@@ -306,6 +318,20 @@ export default function Admin() {
   const [renameBrand, setRenameBrand] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [deleteBrandConfirm, setDeleteBrandConfirm] = useState<string | null>(null);
+
+  // Footer links management state
+  const [showAddFooterLinkForm, setShowAddFooterLinkForm] = useState(false);
+  const [formFooterLinkName, setFormFooterLinkName] = useState("");
+  const [formFooterLinkPath, setFormFooterLinkPath] = useState("");
+  const [formFooterLinkOrder, setFormFooterLinkOrder] = useState(0);
+  const [editingFooterLink, setEditingFooterLink] = useState<{ name: string; path: string; order: number } | null>(null);
+
+  // Nav links management state
+  const [showAddNavLinkForm, setShowAddNavLinkForm] = useState(false);
+  const [formNavLinkName, setFormNavLinkName] = useState("");
+  const [formNavLinkPath, setFormNavLinkPath] = useState("");
+  const [formNavLinkOrder, setFormNavLinkOrder] = useState(0);
+  const [editingNavLink, setEditingNavLink] = useState<number | null>(null);
 
   // Bulk edit state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -515,6 +541,8 @@ export default function Admin() {
           "https://images.unsplash.com/photo-1541643600914-78b084683601?w=400&q=80",
         isFeatured: formFeatured || undefined,
         isNew: formNew || undefined,
+        description: "",
+        instagramUrl: "",
       });
     }
     resetForm();
@@ -560,17 +588,26 @@ export default function Admin() {
     }));
   };
 
-  const tabs: { key: Tab; label: string }[] = [
+  const mainTabs: { key: MainTab; label: string }[] = [
+    { key: "catalogue", label: "Каталог" },
+    { key: "landing", label: "Управление лэндингом" },
+    { key: "settings", label: "Настройки" },
+  ];
+  const catalogueSubTabs: { key: CatalogueSubTab; label: string }[] = [
     { key: "products", label: "Продукты" },
     { key: "brands", label: "Бренды" },
+    { key: "categories", label: "Категории" },
+  ];
+  const landingSubTabs: { key: LandingSubTab; label: string }[] = [
+    { key: "home", label: "Главная" },
+    { key: "footers", label: "Колонтитулы" },
+  ];
+  const homeSections: { key: HomeSection; label: string }[] = [
+    { key: "logo", label: "Лого" },
     { key: "hero", label: "Герой-баннер" },
     { key: "headings", label: "Заголовки" },
     { key: "about", label: "О нас" },
-    { key: "footer", label: "Подвал" },
-    { key: "categories", label: "Категории" },
-    { key: "account", label: "Аккаунт" },
-    { key: "users", label: "Пользователи" },
-    { key: "settings", label: "Настройки" },
+    { key: "navigation", label: "Навигация" },
   ];
 
   return (
@@ -595,14 +632,14 @@ export default function Admin() {
         </h1>
         <div className="w-16 h-px bg-[#C69B56] mb-8" />
 
-        {/* Tabs */}
-        <div className="flex gap-1 mb-8 border-b border-white/10 overflow-x-auto">
-          {tabs.map((tab) => (
+        {/* Main Tabs */}
+        <div className="flex gap-1 mb-4 border-b border-white/10 overflow-x-auto">
+          {mainTabs.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => setActiveMainTab(tab.key)}
               className={`px-4 py-3 text-xs tracking-[0.1em] uppercase transition-colors whitespace-nowrap ${
-                activeTab === tab.key
+                activeMainTab === tab.key
                   ? "text-[#C69B56] border-b-2 border-[#C69B56]"
                   : "text-white/40 hover:text-white/70 border-b-2 border-transparent"
               }`}
@@ -611,6 +648,63 @@ export default function Admin() {
             </button>
           ))}
         </div>
+
+        {/* Catalogue Sub Tabs */}
+        {activeMainTab === "catalogue" && (
+          <div className="flex gap-1 mb-8 border-b border-white/5 overflow-x-auto">
+            {catalogueSubTabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveCatalogueSubTab(tab.key)}
+                className={`px-4 py-2 text-[10px] tracking-[0.1em] uppercase transition-colors whitespace-nowrap ${
+                  activeCatalogueSubTab === tab.key
+                    ? "text-[#C69B56] border-b-2 border-[#C69B56]/50"
+                    : "text-white/30 hover:text-white/60 border-b-2 border-transparent"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Landing Sub Tabs */}
+        {activeMainTab === "landing" && (
+          <div className="flex gap-1 mb-4 border-b border-white/5 overflow-x-auto">
+            {landingSubTabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveLandingSubTab(tab.key)}
+                className={`px-4 py-2 text-[10px] tracking-[0.1em] uppercase transition-colors whitespace-nowrap ${
+                  activeLandingSubTab === tab.key
+                    ? "text-[#C69B56] border-b-2 border-[#C69B56]/50"
+                    : "text-white/30 hover:text-white/60 border-b-2 border-transparent"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Home Sections (under Landing > Home) */}
+        {activeMainTab === "landing" && activeLandingSubTab === "home" && (
+          <div className="flex gap-1 mb-8 border-b border-white/[0.02] overflow-x-auto">
+            {homeSections.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveHomeSection(tab.key)}
+                className={`px-3 py-1.5 text-[10px] tracking-[0.1em] uppercase transition-colors whitespace-nowrap ${
+                  activeHomeSection === tab.key
+                    ? "text-[#C69B56]/80 border-b-2 border-[#C69B56]/30"
+                    : "text-white/20 hover:text-white/50 border-b-2 border-transparent"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* ═══════════════════════════════════════════ */}
         {/* PRODUCTS TAB */}
@@ -1276,6 +1370,94 @@ export default function Admin() {
         {/* ═══════════════════════════════════════════ */}
         {/* HERO BANNER TAB */}
         {/* ═══════════════════════════════════════════ */}
+        {/* ═══════════════════════════════════════════ */}
+        {/* LOGO TAB (Landing > Home > Logo) */}
+        {/* ═══════════════════════════════════════════ */}
+        {activeMainTab === "landing" && activeLandingSubTab === "home" && activeHomeSection === "logo" && (
+          <div>
+            <h3 className="text-[#C69B56] text-sm tracking-[0.1em] uppercase mb-6">
+              Настройки логотипа и брендинга
+            </h3>
+
+            <div className="bg-[#1A1A1A] border border-white/10 p-6">
+              <div className="grid sm:grid-cols-2 gap-6">
+                <ImageUpload
+                  label="Логотип (кнопка домой)"
+                  value={draft.logo}
+                  onChange={(v) =>
+                    updateDraft((prev) => ({ ...prev, logo: v }))
+                  }
+                  folder="branding"
+                />
+                <ImageUpload
+                  label="Favicon"
+                  value={draft.favicon}
+                  onChange={(v) =>
+                    updateDraft((prev) => ({ ...prev, favicon: v }))
+                  }
+                  folder="branding"
+                />
+                <div className="sm:col-span-2">
+                  <Field
+                    label="Заголовок вкладки в браузере"
+                    value={draft.pageTitle}
+                    onChange={(v) =>
+                      updateDraft((prev) => ({ ...prev, pageTitle: v }))
+                    }
+                    placeholder="1000 Ароматов | Элитная парфюмерия на распив"
+                  />
+                </div>
+              </div>
+
+              {/* Preview */}
+              <div className="mt-6 border border-white/5 p-4 bg-black">
+                <p className="text-white/30 text-[10px] uppercase tracking-wider mb-3">
+                  Предпросмотр
+                </p>
+                <div className="flex items-center gap-4">
+                  {draft.logo && (
+                    <img
+                      src={draft.logo}
+                      alt="Logo preview"
+                      className="h-8 object-contain"
+                    />
+                  )}
+                  {draft.favicon && (
+                    <img
+                      src={draft.favicon}
+                      alt="Favicon preview"
+                      className="w-4 h-4 object-contain"
+                    />
+                  )}
+                  <span className="text-white/40 text-xs truncate">
+                    {draft.pageTitle}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={saveContent}
+                  className="bg-[#C69B56] text-black text-xs tracking-[0.1em] uppercase px-5 py-2 font-medium hover:bg-[#d4aa65] transition-colors"
+                >
+                  Сохранить
+                </button>
+                <button
+                  onClick={resetDraft}
+                  className="border border-white/20 text-white/50 text-xs tracking-[0.1em] uppercase px-5 py-2 hover:text-white/80 hover:border-white/40 transition-colors"
+                >
+                  Сбросить
+                </button>
+                {saved && (
+                  <span className="text-green-400 text-xs self-center">
+                    ✓ Сохранено
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === "hero" && (
           <div>
             <h3 className="text-[#C69B56] text-sm tracking-[0.1em] uppercase mb-6">
@@ -1709,15 +1891,301 @@ export default function Admin() {
         )}
 
         {/* ═══════════════════════════════════════════ */}
-        {/* FOOTER TAB */}
+        {/* NAVIGATION TAB (Landing > Home > Navigation) */}
         {/* ═══════════════════════════════════════════ */}
-        {activeTab === "footer" && (
+        {activeMainTab === "landing" && activeLandingSubTab === "home" && activeHomeSection === "navigation" && (
           <div>
             <h3 className="text-[#C69B56] text-sm tracking-[0.1em] uppercase mb-6">
-              Редактирование подвала
+              Управление навигацией
             </h3>
 
             <div className="bg-[#1A1A1A] border border-white/10 p-6">
+              <h4 className="text-white/70 text-xs tracking-[0.1em] uppercase mb-2">
+                Ссылки в шапке (navLinks)
+              </h4>
+              <p className="text-white/30 text-xs mb-4">
+                Основные ссылки навигации, отображаемые в Header и Footer. Ссылки сортируются по порядку.
+              </p>
+
+              {showAddNavLinkForm && (
+                <div className="bg-black/50 border border-white/10 p-4 mb-4">
+                  <div className="grid sm:grid-cols-3 gap-3">
+                    <Field
+                      label="Название *"
+                      value={formNavLinkName}
+                      onChange={setFormNavLinkName}
+                      placeholder="Например: Каталог"
+                    />
+                    <Field
+                      label="Путь *"
+                      value={formNavLinkPath}
+                      onChange={setFormNavLinkPath}
+                      placeholder="/catalogue"
+                    />
+                    <Field
+                      label="Порядок"
+                      value={formNavLinkOrder.toString()}
+                      onChange={(v) => setFormNavLinkOrder(parseInt(v) || 0)}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="flex gap-3 mt-4">
+                    <button
+                      onClick={() => {
+                        if (!formNavLinkName.trim() || !formNavLinkPath.trim()) return;
+                        if (editingNavLink !== null) {
+                          // Edit existing
+                          updateDraft((prev) => {
+                            const links = [...prev.navLinks];
+                            links[editingNavLink] = {
+                              name: formNavLinkName.trim(),
+                              path: formNavLinkPath.trim(),
+                              order: formNavLinkOrder,
+                            };
+                            return { ...prev, navLinks: links };
+                          });
+                        } else {
+                          // Add new
+                          updateDraft((prev) => ({
+                            ...prev,
+                            navLinks: [
+                              ...prev.navLinks,
+                              {
+                                name: formNavLinkName.trim(),
+                                path: formNavLinkPath.trim(),
+                                order: formNavLinkOrder,
+                              },
+                            ],
+                          }));
+                        }
+                        setShowAddNavLinkForm(false);
+                        setEditingNavLink(null);
+                        setFormNavLinkName("");
+                        setFormNavLinkPath("");
+                        setFormNavLinkOrder(0);
+                      }}
+                      className="bg-[#C69B56] text-black text-xs tracking-[0.1em] uppercase px-4 py-2 font-medium hover:bg-[#d4aa65] transition-colors"
+                    >
+                      {editingNavLink !== null ? "Сохранить" : "Добавить"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAddNavLinkForm(false);
+                        setEditingNavLink(null);
+                        setFormNavLinkName("");
+                        setFormNavLinkPath("");
+                        setFormNavLinkOrder(0);
+                      }}
+                      className="border border-white/20 text-white/50 text-xs tracking-[0.1em] uppercase px-4 py-2 hover:text-white/80 hover:border-white/40 transition-colors"
+                    >
+                      Отмена
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!showAddNavLinkForm && (
+                <button
+                  onClick={() => {
+                    setEditingNavLink(null);
+                    setFormNavLinkName("");
+                    setFormNavLinkPath("");
+                    setFormNavLinkOrder(0);
+                    setShowAddNavLinkForm(true);
+                  }}
+                  className="text-[#C69B56] text-xs hover:text-[#d4aa65] transition-colors mb-4 block"
+                >
+                  + Добавить ссылку
+                </button>
+              )}
+
+              {draft.navLinks.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10 text-white/40 text-xs tracking-wide uppercase">
+                        <th className="text-left py-2 px-2">Название</th>
+                        <th className="text-left py-2 px-2">Путь</th>
+                        <th className="text-left py-2 px-2">Порядок</th>
+                        <th className="text-right py-2 px-2">Действия</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...draft.navLinks]
+                        .map((link, idx) => ({ link, idx }))
+                        .sort((a, b) => a.link.order - b.link.order)
+                        .map(({ link, idx }) => (
+                          <tr
+                            key={`${link.path}-${idx}`}
+                            className="border-b border-white/5 hover:bg-white/[0.02]"
+                          >
+                            <td className="py-2 px-2 text-white/80">{link.name}</td>
+                            <td className="py-2 px-2 text-white/40 text-xs font-mono">
+                              {link.path}
+                            </td>
+                            <td className="py-2 px-2 text-[#C69B56]/60 text-xs">
+                              {link.order}
+                            </td>
+                            <td className="py-2 px-2 text-right">
+                              <button
+                                onClick={() => {
+                                  setEditingNavLink(idx);
+                                  setFormNavLinkName(link.name);
+                                  setFormNavLinkPath(link.path);
+                                  setFormNavLinkOrder(link.order);
+                                  setShowAddNavLinkForm(true);
+                                }}
+                                className="text-white/40 hover:text-[#C69B56] text-xs mr-3 transition-colors"
+                              >
+                                Изменить
+                              </button>
+                              <button
+                                onClick={() => {
+                                  updateDraft((prev) => ({
+                                    ...prev,
+                                    navLinks: prev.navLinks.filter((_, i) => i !== idx),
+                                  }));
+                                }}
+                                className="text-white/40 hover:text-red-400 text-xs transition-colors"
+                              >
+                                Удалить
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {draft.navLinks.length === 0 && (
+                <div className="text-center py-6">
+                  <p className="text-white/30 text-xs">Нет ссылок навигации. Нажмите «+ Добавить ссылку» чтобы создать.</p>
+                </div>
+              )}
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={saveContent}
+                  className="bg-[#C69B56] text-black text-xs tracking-[0.1em] uppercase px-5 py-2 font-medium hover:bg-[#d4aa65] transition-colors"
+                >
+                  Сохранить
+                </button>
+                <button
+                  onClick={resetDraft}
+                  className="border border-white/20 text-white/50 text-xs tracking-[0.1em] uppercase px-5 py-2 hover:text-white/80 hover:border-white/40 transition-colors"
+                >
+                  Сбросить
+                </button>
+                {saved && (
+                  <span className="text-green-400 text-xs self-center">
+                    ✓ Сохранено
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════ */}
+        {/* FOOTER TAB (Landing > Footers) */}
+        {/* ═══════════════════════════════════════════ */}
+        {activeMainTab === "landing" && activeLandingSubTab === "footers" && (
+          <div>
+            <h3 className="text-[#C69B56] text-sm tracking-[0.1em] uppercase mb-6">
+              Редактирование колонтитулов
+            </h3>
+
+            {/* Header Visibility */}
+            <div className="bg-[#1A1A1A] border border-white/10 p-6 mb-6">
+              <h4 className="text-white/70 text-xs tracking-[0.1em] uppercase mb-4">
+                Верхний колонтитул (Header)
+              </h4>
+              <div className="space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={draft.headerVisibility.logo}
+                    onChange={(e) =>
+                      updateDraft((prev) => ({
+                        ...prev,
+                        headerVisibility: { ...prev.headerVisibility, logo: e.target.checked },
+                      }))
+                    }
+                    className="accent-[#C69B56] w-4 h-4"
+                  />
+                  <span className="text-white/70 text-sm">Показывать логотип</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={draft.headerVisibility.links}
+                    onChange={(e) =>
+                      updateDraft((prev) => ({
+                        ...prev,
+                        headerVisibility: { ...prev.headerVisibility, links: e.target.checked },
+                      }))
+                    }
+                    className="accent-[#C69B56] w-4 h-4"
+                  />
+                  <span className="text-white/70 text-sm">Показывать навигацию</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={draft.headerVisibility.search}
+                    onChange={(e) =>
+                      updateDraft((prev) => ({
+                        ...prev,
+                        headerVisibility: { ...prev.headerVisibility, search: e.target.checked },
+                      }))
+                    }
+                    className="accent-[#C69B56] w-4 h-4"
+                  />
+                  <span className="text-white/70 text-sm">Показывать поиск</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={draft.headerVisibility.login}
+                    onChange={(e) =>
+                      updateDraft((prev) => ({
+                        ...prev,
+                        headerVisibility: { ...prev.headerVisibility, login: e.target.checked },
+                      }))
+                    }
+                    className="accent-[#C69B56] w-4 h-4"
+                  />
+                  <span className="text-white/70 text-sm">Показывать кнопку входа</span>
+                </label>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={saveContent}
+                  className="bg-[#C69B56] text-black text-xs tracking-[0.1em] uppercase px-5 py-2 font-medium hover:bg-[#d4aa65] transition-colors"
+                >
+                  Сохранить
+                </button>
+                <button
+                  onClick={resetDraft}
+                  className="border border-white/20 text-white/50 text-xs tracking-[0.1em] uppercase px-5 py-2 hover:text-white/80 hover:border-white/40 transition-colors"
+                >
+                  Сбросить
+                </button>
+                {saved && (
+                  <span className="text-green-400 text-xs self-center">
+                    ✓ Сохранено
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Footer Section */}
+            <div className="bg-[#1A1A1A] border border-white/10 p-6">
+              <h4 className="text-white/70 text-xs tracking-[0.1em] uppercase mb-4">
+                Нижний колонтитул (Footer)
+              </h4>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
                   <Field
@@ -1815,6 +2283,180 @@ export default function Admin() {
                     }))
                   }
                 />
+                <Field
+                  label="URL «Политика конфиденциальности» (PDF)"
+                  value={draft.footer.privacyPolicyUrl}
+                  onChange={(v) =>
+                    updateDraft((prev) => ({
+                      ...prev,
+                      footer: { ...prev.footer, privacyPolicyUrl: v },
+                    }))
+                  }
+                  placeholder="/privacy.pdf или https://..."
+                />
+                <Field
+                  label="URL «Оферта» (PDF)"
+                  value={draft.footer.offerUrl}
+                  onChange={(v) =>
+                    updateDraft((prev) => ({
+                      ...prev,
+                      footer: { ...prev.footer, offerUrl: v },
+                    }))
+                  }
+                  placeholder="/offer.pdf или https://..."
+                />
+              </div>
+
+              {/* Footer Links Manager */}
+              <div className="mt-8">
+                <h4 className="text-[#C69B56] text-xs tracking-[0.1em] uppercase mb-4 font-medium">
+                  Ссылки в подвале (footerLinks)
+                </h4>
+                <p className="text-white/30 text-xs mb-4">
+                  Дополнительные ссылки, отображаемые в блоке «Навигация» футера
+                </p>
+
+                {showAddFooterLinkForm && (
+                  <div className="bg-black/50 border border-white/10 p-4 mb-4">
+                    <div className="grid sm:grid-cols-3 gap-3">
+                      <Field
+                        label="Название *"
+                        value={formFooterLinkName}
+                        onChange={setFormFooterLinkName}
+                        placeholder="Например: Доставка"
+                      />
+                      <Field
+                        label="Путь *"
+                        value={formFooterLinkPath}
+                        onChange={setFormFooterLinkPath}
+                        placeholder="/delivery"
+                      />
+                      <Field
+                        label="Порядок"
+                        value={formFooterLinkOrder.toString()}
+                        onChange={(v) => setFormFooterLinkOrder(parseInt(v) || 0)}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="flex gap-3 mt-4">
+                      <button
+                        onClick={() => {
+                          if (!formFooterLinkName.trim() || !formFooterLinkPath.trim()) return;
+                          updateDraft((prev) => ({
+                            ...prev,
+                            footer: {
+                              ...prev.footer,
+                              footerLinks: [
+                                ...prev.footer.footerLinks,
+                                {
+                                  name: formFooterLinkName.trim(),
+                                  path: formFooterLinkPath.trim(),
+                                  order: formFooterLinkOrder,
+                                },
+                              ],
+                            },
+                          }));
+                          setShowAddFooterLinkForm(false);
+                          setFormFooterLinkName("");
+                          setFormFooterLinkPath("");
+                          setFormFooterLinkOrder(0);
+                        }}
+                        className="bg-[#C69B56] text-black text-xs tracking-[0.1em] uppercase px-4 py-2 font-medium hover:bg-[#d4aa65] transition-colors"
+                      >
+                        Добавить
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowAddFooterLinkForm(false);
+                          setFormFooterLinkName("");
+                          setFormFooterLinkPath("");
+                          setFormFooterLinkOrder(0);
+                        }}
+                        className="border border-white/20 text-white/50 text-xs tracking-[0.1em] uppercase px-4 py-2 hover:text-white/80 hover:border-white/40 transition-colors"
+                      >
+                        Отмена
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {!showAddFooterLinkForm && (
+                  <button
+                    onClick={() => {
+                      setEditingFooterLink(null);
+                      setFormFooterLinkName("");
+                      setFormFooterLinkPath("");
+                      setFormFooterLinkOrder(0);
+                      setShowAddFooterLinkForm(true);
+                    }}
+                    className="text-[#C69B56] text-xs hover:text-[#d4aa65] transition-colors mb-4 block"
+                  >
+                    + Добавить ссылку
+                  </button>
+                )}
+
+                {draft.footer.footerLinks.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-white/10 text-white/40 text-xs tracking-wide uppercase">
+                          <th className="text-left py-2 px-2">Название</th>
+                          <th className="text-left py-2 px-2">Путь</th>
+                          <th className="text-left py-2 px-2">Порядок</th>
+                          <th className="text-right py-2 px-2">Действия</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...draft.footer.footerLinks]
+                          .sort((a, b) => a.order - b.order)
+                          .map((link, idx) => (
+                            <tr
+                              key={`${link.path}-${idx}`}
+                              className="border-b border-white/5 hover:bg-white/[0.02]"
+                            >
+                              <td className="py-2 px-2 text-white/80">{link.name}</td>
+                              <td className="py-2 px-2 text-white/40 text-xs font-mono">
+                                {link.path}
+                              </td>
+                              <td className="py-2 px-2 text-[#C69B56]/60 text-xs">
+                                {link.order}
+                              </td>
+                              <td className="py-2 px-2 text-right">
+                                <button
+                                  onClick={() => {
+                                    setEditingFooterLink(link);
+                                    setFormFooterLinkName(link.name);
+                                    setFormFooterLinkPath(link.path);
+                                    setFormFooterLinkOrder(link.order);
+                                    setShowAddFooterLinkForm(true);
+                                  }}
+                                  className="text-white/40 hover:text-[#C69B56] text-xs mr-3 transition-colors"
+                                >
+                                  Изменить
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    updateDraft((prev) => ({
+                                      ...prev,
+                                      footer: {
+                                        ...prev.footer,
+                                        footerLinks: prev.footer.footerLinks.filter(
+                                          (l) => l !== link
+                                        ),
+                                      },
+                                    }));
+                                  }}
+                                  className="text-white/40 hover:text-red-400 text-xs transition-colors"
+                                >
+                                  Удалить
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3 mt-6">
@@ -2024,433 +2666,6 @@ export default function Admin() {
           </div>
         )}
 
-        {/* ═══════════════════════════════════════════ */}
-        {/* ACCOUNT TAB */}
-        {/* ═══════════════════════════════════════════ */}
-        {activeTab === "account" && (
-          <div>
-            <h3 className="text-[#C69B56] text-sm tracking-[0.1em] uppercase mb-6">
-              Управление аккаунтом
-            </h3>
-
-            {/* Account Info */}
-            <div className="bg-[#1A1A1A] border border-white/10 p-6 mb-6">
-              <h4 className="text-white/70 text-xs tracking-[0.1em] uppercase mb-4">
-                Информация аккаунта
-              </h4>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-white/40 text-xs mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={accountEmail}
-                    onChange={(e) => {
-                      setAccountEmail(e.target.value);
-                      setAccountMsg(null);
-                    }}
-                    className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20"
-                    placeholder="admin@example.com"
-                  />
-                </div>
-                <div>
-                  <label className="block text-white/40 text-xs mb-1">Имя</label>
-                  <input
-                    type="text"
-                    value={accountName}
-                    onChange={(e) => {
-                      setAccountName(e.target.value);
-                      setAccountMsg(null);
-                    }}
-                    className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20"
-                    placeholder="Имя администратора"
-                  />
-                </div>
-                <div>
-                  <label className="block text-white/40 text-xs mb-1">Роль</label>
-                  <input
-                    type="text"
-                    value={accountRole}
-                    disabled
-                    className="w-full bg-black/50 border border-white/5 text-white/30 text-sm px-3 py-2 cursor-not-allowed"
-                  />
-                </div>
-              </div>
-
-              {accountMsg && (
-                <div className={`flex items-center gap-2 mt-4 text-xs ${accountMsg.type === "success" ? "text-green-400" : "text-red-400"}`}>
-                  {accountMsg.type === "success" ? <Check size={14} /> : <AlertCircle size={14} />}
-                  {accountMsg.text}
-                </div>
-              )}
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={async () => {
-                    setAccountLoading(true);
-                    setAccountMsg(null);
-                    try {
-                      // Validate email format
-                      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-                      if (!emailRegex.test(accountEmail.trim())) {
-                        setAccountMsg({ type: "error", text: "Введите корректный email адрес" });
-                        setAccountLoading(false);
-                        return;
-                      }
-                      await laravelApi.updateAccountEmail(accountEmail.trim().toLowerCase());
-                      if (accountName.trim()) {
-                        await laravelApi.updateAccountName(accountName.trim());
-                      }
-                      setAccountMsg({ type: "success", text: "Данные аккаунта обновлены" });
-                    } catch (err: any) {
-                      const detail = err?.response?.data?.detail || err?.message || "Ошибка обновления";
-                      setAccountMsg({ type: "error", text: typeof detail === "string" ? detail : "Ошибка обновления аккаунта" });
-                    } finally {
-                      setAccountLoading(false);
-                    }
-                  }}
-                  disabled={accountLoading}
-                  className="bg-[#C69B56] text-black text-xs tracking-[0.1em] uppercase px-5 py-2 font-medium hover:bg-[#d4aa65] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  <Save size={12} />
-                  {accountLoading ? "Сохранение..." : "Сохранить"}
-                </button>
-              </div>
-            </div>
-
-            {/* Password Change */}
-            <div className="bg-[#1A1A1A] border border-white/10 p-6">
-              <h4 className="text-white/70 text-xs tracking-[0.1em] uppercase mb-4">
-                Смена пароля
-              </h4>
-              <div className="bg-[#C69B56]/5 border border-[#C69B56]/20 p-3 mb-4">
-                <p className="text-[#C69B56]/80 text-xs">
-                  Аутентификация управляется через внешний провайдер (OIDC). Для смены пароля используйте интерфейс провайдера авторизации.
-                </p>
-              </div>
-              <div className="grid sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-white/40 text-xs mb-1">Текущий пароль</label>
-                  <input
-                    type="password"
-                    value={currentPassword}
-                    onChange={(e) => {
-                      setCurrentPassword(e.target.value);
-                      setPasswordMsg(null);
-                    }}
-                    className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20"
-                    placeholder="••••••••"
-                  />
-                </div>
-                <div>
-                  <label className="block text-white/40 text-xs mb-1">Новый пароль</label>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => {
-                      setNewPassword(e.target.value);
-                      setPasswordMsg(null);
-                    }}
-                    className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20"
-                    placeholder="Минимум 8 символов"
-                  />
-                </div>
-                <div>
-                  <label className="block text-white/40 text-xs mb-1">Подтвердите пароль</label>
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => {
-                      setConfirmPassword(e.target.value);
-                      setPasswordMsg(null);
-                    }}
-                    className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20"
-                    placeholder="Повторите пароль"
-                  />
-                </div>
-              </div>
-
-              {newPassword && (
-                <div className="mt-3 space-y-1">
-                  <div className={`text-[10px] flex items-center gap-1 ${newPassword.length >= 8 ? "text-green-400" : "text-white/30"}`}>
-                    <span>{newPassword.length >= 8 ? "✓" : "○"}</span> Минимум 8 символов
-                  </div>
-                  <div className={`text-[10px] flex items-center gap-1 ${/[A-Za-z]/.test(newPassword) ? "text-green-400" : "text-white/30"}`}>
-                    <span>{/[A-Za-z]/.test(newPassword) ? "✓" : "○"}</span> Хотя бы одна буква
-                  </div>
-                  <div className={`text-[10px] flex items-center gap-1 ${/[0-9]/.test(newPassword) ? "text-green-400" : "text-white/30"}`}>
-                    <span>{/[0-9]/.test(newPassword) ? "✓" : "○"}</span> Хотя бы одна цифра
-                  </div>
-                  {confirmPassword && (
-                    <div className={`text-[10px] flex items-center gap-1 ${newPassword === confirmPassword ? "text-green-400" : "text-red-400"}`}>
-                      <span>{newPassword === confirmPassword ? "✓" : "○"}</span> Пароли совпадают
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {passwordMsg && (
-                <div className={`flex items-center gap-2 mt-4 text-xs ${passwordMsg.type === "success" ? "text-green-400" : "text-red-400"}`}>
-                  {passwordMsg.type === "success" ? <Check size={14} /> : <AlertCircle size={14} />}
-                  {passwordMsg.text}
-                </div>
-              )}
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={async () => {
-                    setPasswordMsg(null);
-                    // Client-side validation
-                    if (!currentPassword) {
-                      setPasswordMsg({ type: "error", text: "Введите текущий пароль" });
-                      return;
-                    }
-                    if (newPassword.length < 8) {
-                      setPasswordMsg({ type: "error", text: "Пароль должен содержать минимум 8 символов" });
-                      return;
-                    }
-                    if (!/[A-Za-z]/.test(newPassword)) {
-                      setPasswordMsg({ type: "error", text: "Пароль должен содержать хотя бы одну букву" });
-                      return;
-                    }
-                    if (!/[0-9]/.test(newPassword)) {
-                      setPasswordMsg({ type: "error", text: "Пароль должен содержать хотя бы одну цифру" });
-                      return;
-                    }
-                    if (newPassword !== confirmPassword) {
-                      setPasswordMsg({ type: "error", text: "Пароли не совпадают" });
-                      return;
-                    }
-                    try {
-                      await laravelApi.changePassword({
-                        current_password: currentPassword,
-                        new_password: newPassword,
-                        password_confirmation: confirmPassword,
-                      });
-                      setPasswordMsg({ type: "success", text: "Пароль успешно изменён" });
-                      setCurrentPassword("");
-                      setNewPassword("");
-                      setConfirmPassword("");
-                    } catch (err: any) {
-                      const detail = err?.response?.data?.detail || err?.message || "Ошибка смены пароля";
-                      setPasswordMsg({ type: "error", text: typeof detail === "string" ? detail : "Ошибка смены пароля" });
-                    }
-                  }}
-                  className="bg-[#C69B56] text-black text-xs tracking-[0.1em] uppercase px-5 py-2 font-medium hover:bg-[#d4aa65] transition-colors flex items-center gap-2"
-                >
-                  <Save size={12} />
-                  Сменить пароль
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ═══════════════════════════════════════════ */}
-        {/* USERS TAB */}
-        {/* ═══════════════════════════════════════════ */}
-        {activeTab === "users" && (
-          <div>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-[#C69B56] text-sm tracking-[0.1em] uppercase">
-                Управление пользователями
-              </h3>
-              <button
-                onClick={async () => {
-                  setUsersLoading(true);
-                  setUsersMsg(null);
-                  try {
-                    const users = await laravelApi.getAdminUsers();
-                    setUsersList(users.map((u: LaravelUser) => ({
-                      id: String(u.id),
-                      email: u.email,
-                      name: u.name || null,
-                      role: u.role,
-                      last_login: u.last_login || null,
-                      created_at: u.created_at || null,
-                    })));
-                  } catch (err: any) {
-                    const detail = err?.message || "Ошибка загрузки";
-                    setUsersMsg({ type: "error", text: typeof detail === "string" ? detail : "Ошибка загрузки пользователей" });
-                  } finally {
-                    setUsersLoading(false);
-                  }
-                }}
-                disabled={usersLoading}
-                className="border border-white/20 text-white/50 text-xs tracking-[0.1em] uppercase px-4 py-2 hover:text-white/80 hover:border-white/40 transition-colors disabled:opacity-50"
-              >
-                {usersLoading ? "Загрузка..." : "Обновить"}
-              </button>
-            </div>
-
-            {usersMsg && (
-              <div className={`flex items-center gap-2 mb-4 text-xs ${usersMsg.type === "success" ? "text-green-400" : "text-red-400"}`}>
-                {usersMsg.type === "success" ? <Check size={14} /> : <AlertCircle size={14} />}
-                {usersMsg.text}
-              </div>
-            )}
-
-            {usersList.length === 0 && !usersLoading ? (
-              <div className="bg-[#1A1A1A] border border-white/10 p-8 text-center">
-                <p className="text-white/30 text-sm mb-4">Список пользователей пуст</p>
-                <button
-                  onClick={async () => {
-                    setUsersLoading(true);
-                    setUsersMsg(null);
-                    try {
-                      const users = await laravelApi.getAdminUsers();
-                      setUsersList(users.map((u: LaravelUser) => ({
-                        id: String(u.id),
-                        email: u.email,
-                        name: u.name || null,
-                        role: u.role,
-                        last_login: u.last_login || null,
-                        created_at: u.created_at || null,
-                      })));
-                    } catch (err: any) {
-                      const detail = err?.response?.data?.detail || err?.message || "Ошибка загрузки";
-                      setUsersMsg({ type: "error", text: typeof detail === "string" ? detail : "Ошибка загрузки пользователей" });
-                    } finally {
-                      setUsersLoading(false);
-                    }
-                  }}
-                  className="bg-[#C69B56] text-black text-xs tracking-[0.1em] uppercase px-4 py-2 font-medium hover:bg-[#d4aa65] transition-colors"
-                >
-                  Загрузить пользователей
-                </button>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-white/10 text-white/40 text-xs tracking-wide uppercase">
-                      <th className="text-left py-3 px-2">Имя</th>
-                      <th className="text-left py-3 px-2">Email</th>
-                      <th className="text-left py-3 px-2">Роль</th>
-                      <th className="text-left py-3 px-2">Последний вход</th>
-                      <th className="text-left py-3 px-2">Дата регистрации</th>
-                      <th className="text-right py-3 px-2">Действия</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {usersList.map((u) => (
-                      <tr
-                        key={u.id}
-                        className="border-b border-white/5 hover:bg-white/[0.02]"
-                      >
-                        <td className="py-3 px-2 text-white/80">
-                          {u.name || <span className="text-white/30">—</span>}
-                        </td>
-                        <td className="py-3 px-2 text-white/50">{u.email}</td>
-                        <td className="py-3 px-2">
-                          <span
-                            className={`text-[10px] px-2 py-0.5 ${
-                              u.role === "admin"
-                                ? "bg-[#C69B56]/20 text-[#C69B56]"
-                                : "bg-white/5 text-white/40"
-                            }`}
-                          >
-                            {u.role === "admin" ? "Админ" : "Пользователь"}
-                          </span>
-                        </td>
-                        <td className="py-3 px-2 text-white/30 text-xs">
-                          {u.last_login
-                            ? new Date(u.last_login).toLocaleDateString("ru-RU", {
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })
-                            : "—"}
-                        </td>
-                        <td className="py-3 px-2 text-white/30 text-xs">
-                          {u.created_at
-                            ? new Date(u.created_at).toLocaleDateString("ru-RU", {
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "numeric",
-                              })
-                            : "—"}
-                        </td>
-                        <td className="py-3 px-2 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={async () => {
-                                const newRole = u.role === "admin" ? "user" : "admin";
-                                try {
-                                  await laravelApi.updateUserRole(Number(u.id), newRole);
-                                  setUsersList((prev) =>
-                                    prev.map((user) =>
-                                      user.id === u.id
-                                        ? { ...user, role: newRole }
-                                        : user
-                                    )
-                                  );
-                                  setUsersMsg({
-                                    type: "success",
-                                    text: `Роль ${u.email} изменена на ${newRole === "admin" ? "админ" : "пользователь"}`,
-                                  });
-                                } catch (err: any) {
-                                  const detail = err?.response?.data?.detail || err?.message || "Ошибка";
-                                  setUsersMsg({ type: "error", text: typeof detail === "string" ? detail : "Ошибка изменения роли" });
-                                }
-                              }}
-                              className={`text-xs px-2 py-1 border transition-colors ${
-                                u.role === "admin"
-                                  ? "border-white/20 text-white/40 hover:text-white/70 hover:border-white/40"
-                                  : "border-[#C69B56]/30 text-[#C69B56]/60 hover:text-[#C69B56] hover:border-[#C69B56]/60"
-                              }`}
-                            >
-                              {u.role === "admin" ? "Понизить" : "Повысить"}
-                            </button>
-                            {deleteConfirmId === u.id ? (
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={async () => {
-                                    try {
-                                      await laravelApi.deleteUser(Number(u.id));
-                                      setUsersList((prev) =>
-                                        prev.filter((user) => user.id !== u.id)
-                                      );
-                                      setUsersMsg({
-                                        type: "success",
-                                        text: `Пользователь ${u.email} удалён`,
-                                      });
-                                    } catch (err: any) {
-                                      const detail = err?.response?.data?.detail || err?.message || "Ошибка";
-                                      setUsersMsg({ type: "error", text: typeof detail === "string" ? detail : "Ошибка удаления" });
-                                    }
-                                    setDeleteConfirmId(null);
-                                  }}
-                                  className="text-xs px-2 py-1 bg-red-600/20 border border-red-500/30 text-red-400 hover:bg-red-600/30 transition-colors"
-                                >
-                                  Подтвердить
-                                </button>
-                                <button
-                                  onClick={() => setDeleteConfirmId(null)}
-                                  className="text-xs px-2 py-1 border border-white/20 text-white/40 hover:text-white/70 transition-colors"
-                                >
-                                  Отмена
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => setDeleteConfirmId(u.id)}
-                                className="text-white/40 hover:text-red-400 text-xs transition-colors"
-                              >
-                                Удалить
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* ═══════════════════════════════════════════ */}
         {/* SETTINGS TAB */}

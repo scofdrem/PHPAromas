@@ -40,22 +40,6 @@ class RoleSeeder extends Seeder
         $adminRole = Role::firstOrCreate(['name' => 'administrator']);
         $adminRole->givePermissionTo(Permission::all());
 
-        // Create manager role with limited permissions
-        $managerRole = Role::firstOrCreate(['name' => 'manager']);
-        $managerPermissions = [
-            'view-brands',
-            'create-brands',
-            'edit-brands',
-            'view-products',
-            'create-products',
-            'edit-products',
-            'view-inquiries',
-            'reply-inquiries',
-            'manage-smtp-settings',
-            'manage-site-content',
-        ];
-        $managerRole->givePermissionTo($managerPermissions);
-
         // Create user role with basic permissions
         $userRole = Role::firstOrCreate(['name' => 'user']);
         $userPermissions = [

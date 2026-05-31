@@ -7,6 +7,7 @@ import BlogRoutes from './blog-routes';
 import Index from './pages/Index';
 import Catalogue from './pages/Catalogue';
 import Admin from './pages/Admin';
+import ProtectedAdminRoute from './components/ProtectedAdminRoute';
 import AuthCallback from './pages/AuthCallback';
 import AuthError from './pages/AuthError';
 import Login from './pages/Login';
@@ -31,7 +32,7 @@ const AppRoutes = () => {
   <Routes>
     <Route path="/" element={<Index />} />
     <Route path="/catalogue" element={<Catalogue />} />
-    <Route path="/admin" element={<Admin />} />
+    <Route path="/admin" element={<ProtectedAdminRoute><Admin /></ProtectedAdminRoute>} />
     {/* <Route path="/blog/*" element={<BlogRoutes />} /> */}
     <Route path="/auth/callback" element={<AuthCallback />} />
     <Route path="/auth/error" element={<AuthError />} />

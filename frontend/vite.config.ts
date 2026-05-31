@@ -56,7 +56,7 @@ export default defineConfig(({ command }) => {
       },
     },
     server: {
-      host: '127.0.0.1', // Explicit IPv4 to fix browser connectivity.
+      host: '0.0.0.0', // Bind all interfaces for IPv4 compatibility.
       port: parseInt(process.env.VITE_PORT || '3000'),
       proxy: {
         '/api': {

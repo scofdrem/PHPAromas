@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Search, X, Menu, LogIn, LogOut } from "lucide-react";
 import { useAuth } from '../contexts/AuthContext';
+import { useSiteContent } from '@/data/siteContent';
 
 export default function Header() {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -9,12 +10,19 @@ export default function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, isAdmin } = useAuth();
+  const siteContent = useSiteContent();
 
-  const navLinks = [
-    { name: "Каталог", path: "/catalogue" },
-    { name: "Бренды", path: "/catalogue?tab=brands" },
-    { name: "О нас", path: "/#about" },
-  ];
+  useEffect(() => {
+    document.title = siteContent.pageTitle;
+    const favicon = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+    if (favicon) favicon.href = siteContent.favicon;
+  }, [siteContent.pageTitle, siteContent.favicon]);
+
+  const { logo: showLogo, links: showLinks, search: showSearch, login: showLogin } = siteContent.headerVisibility;
+
+  const navLinks = siteContent.navLinks
+    .sort((a, b) => a.order - b.order)
+    .map(({ name, path }) => ({ name, path }));
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-sm border-b border-[#C69B56]/20">
@@ -29,75 +37,85 @@ export default function Header() {
           </button>
 
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 shrink-0">
-            <img
-              src="/logo.jpg"
-              alt="1000 АРОМАТОВ"
-              className="h-10 w-10 sm:h-12 sm:w-12 rounded-full object-cover"
-            />
-            <div className="hidden sm:block">
-              <div className="text-[#C69B56] text-lg font-semibold tracking-[0.2em] leading-tight">
-                1000 АРОМАТОВ
+          {showLogo && (
+            <Link to="/" className="flex items-center gap-3 shrink-0">
+              <img
+                src={siteContent.logo || "/logo.jpg"}
+                alt="Logo"
+                className="h-10 w-10 sm:h-12 sm:w-12 rounded-full object-cover"
+              />
+              <div className="hidden sm:block">
+                <div className="text-[#C69B56] text-lg font-semibold tracking-[0.2em] leading-tight">
+                  {siteContent.headerText.brandName}
+                </div>
+                <div className="text-[#C69B56]/60 text-[10px] tracking-[0.15em] leading-tight">
+                  {siteContent.headerText.subtitle}
+                </div>
               </div>
-              <div className="text-[#C69B56]/60 text-[10px] tracking-[0.15em] leading-tight">
-                ПАРФЮМ НА РАСПИВ
-              </div>
-            </div>
-          </Link>
+            </Link>
+          )}
 
           {/* Desktop Navigation */}
-          <nav className="hidden sm:flex items-center gap-8">
-            {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                to={link.path}
-                className={`text-sm tracking-[0.1em] uppercase transition-colors duration-200 ${
-                  location.pathname === link.path
-                    ? "text-[#C69B56]"
-                    : "text-white/70 hover:text-[#C69B56]"
-                }`}
-              >
-                {link.name}
-              </Link>
-            ))}
-            {isAdmin && (
-              <Link
-                to="/admin"
-                className={`text-sm tracking-[0.1em] uppercase transition-colors duration-200 ${
-                  location.pathname === "/admin"
-                    ? "text-[#C69B56]"
-                    : "text-white/70 hover:text-[#C69B56]"
-                }`}
-              >
-                Админ
-              </Link>
-            )}
-          </nav>
+          {showLinks && (
+            <nav className="hidden sm:flex items-center gap-8">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.name}
+                  to={link.path}
+                  className={`text-sm tracking-[0.1em] uppercase transition-colors duration-200 ${
+                    location.pathname === link.path
+                      ? "text-[#C69B56]"
+                      : "text-white/70 hover:text-[#C69B56]"
+                  }`}
+                >
+                  {link.name}
+                </Link>
+              ))}
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  className={`text-sm tracking-[0.1em] uppercase transition-colors duration-200 ${
+                    location.pathname === "/admin"
+                      ? "text-[#C69B56]"
+                      : "text-white/70 hover:text-[#C69B56]"
+                  }`}
+                >
+                  Админ
+                </Link>
+              )}
+            </nav>
+          )}
 
           {/* Search */}
-          <div className="flex items-center gap-3">
-            {searchOpen ? (
-              <div className="flex items-center gap-2 bg-white/10 rounded-full px-4 py-2">
-                <Search size={16} className="text-[#C69B56]" />
-                <input
-                  type="text"
-                  placeholder="Поиск ароматов..."
-                  className="bg-transparent text-white text-sm outline-none w-32 sm:w-48 placeholder:text-white/40"
-                  autoFocus
-                />
-                <button onClick={() => setSearchOpen(false)}>
-                  <X size={16} className="text-white/50 hover:text-white" />
+          {showSearch && (
+            <div className="flex items-center gap-3">
+              {searchOpen ? (
+                <div className="flex items-center gap-2 bg-white/10 rounded-full px-4 py-2">
+                  <Search size={16} className="text-[#C69B56]" />
+                  <input
+                    type="text"
+                    placeholder="Поиск ароматов..."
+                    className="bg-transparent text-white text-sm outline-none w-32 sm:w-48 placeholder:text-white/40"
+                    autoFocus
+                  />
+                  <button onClick={() => setSearchOpen(false)}>
+                    <X size={16} className="text-white/50 hover:text-white" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setSearchOpen(true)}
+                  className="text-white/70 hover:text-[#C69B56] transition-colors p-1"
+                >
+                  <Search size={20} />
                 </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setSearchOpen(true)}
-                className="text-white/70 hover:text-[#C69B56] transition-colors p-1"
-              >
-                <Search size={20} />
-              </button>
-            )}
-            {user ? (
+              )}
+            </div>
+          )}
+
+          {/* Login/Logout */}
+          {showLogin && (
+            user ? (
               <button
                 onClick={() => { logout(); navigate('/'); }}
                 className="text-white/70 hover:text-[#C69B56] transition-colors p-1"
@@ -113,8 +131,8 @@ export default function Header() {
               >
                 <LogIn size={20} />
               </Link>
-            )}
-          </div>
+            )
+          )}
         </div>
       </div>
 
@@ -122,7 +140,7 @@ export default function Header() {
       {mobileMenuOpen && (
         <div className="sm:hidden bg-black border-t border-[#C69B56]/20">
           <nav className="flex flex-col py-4">
-            {navLinks.map((link) => (
+            {showLinks && navLinks.map((link) => (
               <Link
                 key={link.name}
                 to={link.path}
@@ -132,7 +150,7 @@ export default function Header() {
                 {link.name}
               </Link>
             ))}
-            {isAdmin && (
+            {showLinks && isAdmin && (
               <Link
                 to="/admin"
                 onClick={() => setMobileMenuOpen(false)}
@@ -141,21 +159,23 @@ export default function Header() {
                 Админ
               </Link>
             )}
-            {user ? (
-              <button
-                onClick={() => { logout(); setMobileMenuOpen(false); navigate('/'); }}
-                className="px-6 py-3 text-sm tracking-[0.1em] uppercase text-white/70 hover:text-[#C69B56] hover:bg-white/5 transition-colors text-left"
-              >
-                Выйти
-              </button>
-            ) : (
-              <Link
-                to="/login"
-                onClick={() => setMobileMenuOpen(false)}
-                className="px-6 py-3 text-sm tracking-[0.1em] uppercase text-white/70 hover:text-[#C69B56] hover:bg-white/5 transition-colors"
-              >
-                Войти
-              </Link>
+            {showLogin && (
+              user ? (
+                <button
+                  onClick={() => { logout(); setMobileMenuOpen(false); navigate('/'); }}
+                  className="px-6 py-3 text-sm tracking-[0.1em] uppercase text-white/70 hover:text-[#C69B56] hover:bg-white/5 transition-colors text-left"
+                >
+                  Выйти
+                </button>
+              ) : (
+                <Link
+                  to="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-6 py-3 text-sm tracking-[0.1em] uppercase text-white/70 hover:text-[#C69B56] hover:bg-white/5 transition-colors"
+                >
+                  Войти
+                </Link>
+              )
             )}
           </nav>
         </div>
