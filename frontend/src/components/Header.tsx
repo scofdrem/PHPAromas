@@ -9,7 +9,7 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout } = useAuth();
   const siteContent = useSiteContent();
 
   useEffect(() => {
@@ -18,7 +18,37 @@ export default function Header() {
     if (favicon) favicon.href = siteContent.favicon;
   }, [siteContent.pageTitle, siteContent.favicon]);
 
-  const { logo: showLogo, links: showLinks, search: showSearch, login: showLogin } = siteContent.headerVisibility;
+  const { logo: showLogo, links: showLinks, search: showSearch, login: showLogin, adminLink: showAdminLink } = siteContent.headerVisibility;
+
+  const scrollToElement = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const handleNavClick = (e: React.MouseEvent, path: string) => {
+    const hashIndex = path.indexOf("#");
+    if (hashIndex !== -1) {
+      const hash = path.substring(hashIndex + 1);
+      const targetPath = path.substring(0, hashIndex) || "/";
+      e.preventDefault();
+      if (location.pathname === targetPath) {
+        scrollToElement(hash);
+      } else {
+        navigate(targetPath);
+        setTimeout(() => scrollToElement(hash), 100);
+      }
+      setMobileMenuOpen(false);
+    }
+  };
+
+  const handleLogoClick = (e: React.MouseEvent) => {
+    if (location.pathname === "/") {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
 
   const navLinks = siteContent.navLinks
     .sort((a, b) => a.order - b.order)
@@ -38,7 +68,7 @@ export default function Header() {
 
           {/* Logo */}
           {showLogo && (
-            <Link to="/" className="flex items-center gap-3 shrink-0">
+            <Link to="/" className="flex items-center gap-3 shrink-0" onClick={handleLogoClick}>
               <img
                 src={siteContent.logo || "/logo.jpg"}
                 alt="Logo"
@@ -62,6 +92,7 @@ export default function Header() {
                 <Link
                   key={link.name}
                   to={link.path}
+                  onClick={(e) => handleNavClick(e, link.path)}
                   className={`text-sm tracking-[0.1em] uppercase transition-colors duration-200 ${
                     location.pathname === link.path
                       ? "text-[#C69B56]"
@@ -71,7 +102,7 @@ export default function Header() {
                   {link.name}
                 </Link>
               ))}
-              {isAdmin && (
+              {showAdminLink && (
                 <Link
                   to="/admin"
                   className={`text-sm tracking-[0.1em] uppercase transition-colors duration-200 ${
@@ -144,13 +175,13 @@ export default function Header() {
               <Link
                 key={link.name}
                 to={link.path}
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={(e) => handleNavClick(e, link.path)}
                 className="px-6 py-3 text-sm tracking-[0.1em] uppercase text-white/70 hover:text-[#C69B56] hover:bg-white/5 transition-colors"
               >
                 {link.name}
               </Link>
             ))}
-            {showLinks && isAdmin && (
+            {showLinks && showAdminLink && (
               <Link
                 to="/admin"
                 onClick={() => setMobileMenuOpen(false)}

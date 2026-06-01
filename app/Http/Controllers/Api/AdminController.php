@@ -15,6 +15,26 @@ class AdminController extends Controller
     use ApiResponseTrait;
 
     /**
+     * Get current authenticated user account info.
+     */
+    public function account(): JsonResponse
+    {
+        /** @var \App\Models\User|null $user */
+        $user = auth('api')->user();
+
+        if (! $user) {
+            return $this->errorResponse('Unauthenticated', 401);
+        }
+
+        return $this->successResponse([
+            'first_name' => $user->first_name,
+            'last_name'  => $user->last_name,
+            'email'      => $user->email,
+            'avatar'     => $user->avatar,
+        ]);
+    }
+
+    /**
      * Get dashboard statistics.
      */
     public function dashboard(): JsonResponse
@@ -83,5 +103,83 @@ class AdminController extends Controller
             'debug_mode' => config('app.debug'),
             'timezone' => config('app.timezone'),
         ]);
+    }
+
+    /**
+     * Update authenticated user account name.
+     */
+    public function updateAccount(Request $request): JsonResponse
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'first_name' => 'sometimes|string|max:255',
+            'last_name'  => 'sometimes|string|max:255',
+        ]);
+
+        $user->update($validated);
+
+        return $this->successResponse([
+            'first_name' => $user->first_name,
+            'last_name'  => $user->last_name,
+            'email'      => $user->email,
+            'avatar'     => $user->avatar,
+        ], 'Account updated successfully');
+    }
+
+    /**
+     * Change authenticated user password.
+     */
+    public function changePassword(Request $request): JsonResponse
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'current_password'      => 'required|string',
+            'new_password'          => 'required|string|min:8|confirmed',
+        ]);
+
+        if (! \Hash::check($validated['current_password'], $user->password)) {
+            return $this->errorResponse('Current password is incorrect', 422);
+        }
+
+        $user->update([
+            'password' => \Hash::make($validated['new_password']),
+        ]);
+
+        return $this->successResponse(null, 'Password changed successfully');
+    }
+
+    /**
+     * Get feedback email address from app_configs.
+     */
+    public function feedbackEmail(): JsonResponse
+    {
+        $email = \App\Models\AppConfig::where('key', 'feedback_email')->value('value') ?? '';
+
+        return $this->successResponse([
+            'feedback_email' => $email,
+        ]);
+    }
+
+    /**
+     * Update feedback email address in app_configs.
+     */
+    public function updateFeedbackEmail(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'feedback_email' => 'required|email|max:255',
+        ]);
+
+        \App\Models\AppConfig::updateOrCreate(
+            ['key' => 'feedback_email'],
+            ['value' => $validated['feedback_email']]
+        );
+
+        return $this->successResponse([
+            'feedback_email' => $validated['feedback_email'],
+        ], 'Feedback email updated successfully');
     }
 }

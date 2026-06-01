@@ -30,24 +30,11 @@ function InstagramIcon() {
 
 export default function Footer() {
   const content = useSiteContent();
-  const { footer, navLinks } = content;
+  const { footer, navLinks, footerLogo } = content;
   const { brands } = useDynamicBrands();
 
-  const [pdfUrl, setPdfUrl] = useState("");
-  const [pdfTitle, setPdfTitle] = useState("");
-  const [pdfOpen, setPdfOpen] = useState(false);
-
-  const openPdf = (url: string, title: string) => {
-    setPdfUrl(url);
-    setPdfTitle(title);
-    setPdfOpen(true);
-  };
-
-  const closePdf = () => {
-    setPdfOpen(false);
-    setPdfUrl("");
-    setPdfTitle("");
-  };
+  const [privacyPopupOpen, setPrivacyPopupOpen] = useState(false);
+  const [offerPopupOpen, setOfferPopupOpen] = useState(false);
 
   return (
     <>
@@ -58,8 +45,8 @@ export default function Footer() {
             <div>
               <Link to="/" className="flex items-center gap-3 mb-4">
                 <img
-                  src="/logo.jpg"
-                  alt="1000 АРОМАТОВ"
+                  src={footerLogo || "/logo.jpg"}
+                  alt={footer.brandName}
                   className="h-10 w-10 rounded-full object-cover"
                 />
                 <div>
@@ -204,17 +191,17 @@ export default function Footer() {
               {footer.copyright}
             </p>
             <div className="flex gap-6">
-              {footer.privacyPolicyUrl && (
+              {footer.privacyPolicyPdf && (
                 <button
-                  onClick={() => openPdf(footer.privacyPolicyUrl, footer.privacyPolicyText)}
+                  onClick={() => setPrivacyPopupOpen(true)}
                   className="text-white/20 text-[11px] hover:text-white/40 transition-colors"
                 >
                   {footer.privacyPolicyText}
                 </button>
               )}
-              {footer.offerUrl && (
+              {footer.offerPdf && (
                 <button
-                  onClick={() => openPdf(footer.offerUrl, footer.offerText)}
+                  onClick={() => setOfferPopupOpen(true)}
                   className="text-white/20 text-[11px] hover:text-white/40 transition-colors"
                 >
                   {footer.offerText}
@@ -226,10 +213,16 @@ export default function Footer() {
       </footer>
 
       <PDFPopup
-        url={pdfUrl}
-        title={pdfTitle}
-        isOpen={pdfOpen}
-        onClose={closePdf}
+        base64Data={footer.privacyPolicyPdf}
+        title={footer.privacyPolicyText}
+        isOpen={privacyPopupOpen}
+        onClose={() => setPrivacyPopupOpen(false)}
+      />
+      <PDFPopup
+        base64Data={footer.offerPdf}
+        title={footer.offerText}
+        isOpen={offerPopupOpen}
+        onClose={() => setOfferPopupOpen(false)}
       />
     </>
   );

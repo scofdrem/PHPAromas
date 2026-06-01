@@ -2,13 +2,13 @@ import { useEffect, useCallback } from "react";
 import { X } from "lucide-react";
 
 interface PDFPopupProps {
-  url: string;
+  base64Data: string;
   title: string;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function PDFPopup({ url, title, isOpen, onClose }: PDFPopupProps) {
+export function PDFPopup({ base64Data, title, isOpen, onClose }: PDFPopupProps) {
   const handleEscape = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -29,39 +29,42 @@ export function PDFPopup({ url, title, isOpen, onClose }: PDFPopupProps) {
     };
   }, [isOpen, handleEscape]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !base64Data) return null;
+
+  // Strip data URI prefix if present, we add it ourselves
+  const cleanBase64 = base64Data.startsWith("data:")
+    ? base64Data.split(",")[1]
+    : base64Data;
+  const src = `data:application/pdf;base64,${cleanBase64}`;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="pdf-popup-overlay"
       onClick={onClose}
     >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-
-      {/* Modal */}
       <div
-        className="relative z-10 w-[90vw] h-[90vh] max-w-5xl bg-white rounded-lg shadow-2xl flex flex-col"
+        className="pdf-popup-container"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-[#0A0A0A]">
+          <h2 className="text-lg font-semibold text-[#C69B56]">{title}</h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-1 hover:bg-white/10 rounded-full transition-colors text-white/60 hover:text-white"
             aria-label="Закрыть"
           >
-            <X className="w-5 h-5 text-gray-600" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* PDF Viewer */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden bg-gray-900">
           <iframe
-            src={`${url}#toolbar=0&navpanes=0`}
+            src={src}
             className="w-full h-full"
             title={title}
+            style={{ pointerEvents: "none" }}
           />
         </div>
       </div>

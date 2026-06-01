@@ -284,8 +284,22 @@ class LaravelApiClient {
 
   async getSiteContent(): Promise<Record<string, string>> {
     const response = await this.client.get('/entities/site_content');
-    const content = response.data?.content || response.data?.data || {};
-    return content as Record<string, string>;
+    const raw = response.data?.data || response.data || {};
+    if (Array.isArray(raw)) {
+      // Legacy array format [{ content_key, content_value }, ...]
+      const content: Record<string, string> = {};
+      for (const item of raw) {
+        if (item?.content_key && item?.content_value !== undefined) {
+          content[item.content_key] = item.content_value;
+        }
+      }
+      return content;
+    }
+    // Direct key-value map from successResponse(plucked_map)
+    if (raw && typeof raw === 'object') {
+      return raw as Record<string, string>;
+    }
+    return {};
   }
 
   async getSiteContentItem(key: string): Promise<SiteContentItem | null> {
@@ -398,7 +412,16 @@ class LaravelApiClient {
     return this.extractData(response);
   }
 
-  async updateSmtpSettings(settings: Record<string, string>): Promise<void> {
+  async updateSmtpSettings(settings: {
+    smtp_host: string;
+    smtp_port: number;
+    smtp_user: string;
+    smtp_password: string;
+    email_from: string;
+    email_name: string;
+    email_to: string;
+    email_reply_to: string;
+  }): Promise<void> {
     await this.client.put('/admin/smtp', settings);
   }
 

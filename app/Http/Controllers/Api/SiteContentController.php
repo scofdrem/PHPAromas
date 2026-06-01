@@ -19,7 +19,7 @@ class SiteContentController extends Controller
     {
         $contents = SiteContent::all()->pluck('content_value', 'content_key');
 
-        return $this->successResponse(['content' => $contents]);
+        return $this->successResponse($contents);
     }
 
     /**
@@ -33,9 +33,7 @@ class SiteContentController extends Controller
             return $this->errorResponse('Content not found', 404);
         }
 
-        return $this->successResponse([
-            'content' => $content,
-        ]);
+        return $this->successResponse($content);
     }
 
     /**
@@ -53,9 +51,30 @@ class SiteContentController extends Controller
             ['content_value' => $validated['value'] ?? '']
         );
 
-        return $this->successResponse([
-            'content' => $content,
-        ], $content->wasRecentlyCreated ? 'Content created successfully' : 'Content updated successfully');
+        return $this->successResponse(
+            $content,
+            $content->wasRecentlyCreated ? 'Content created successfully' : 'Content updated successfully'
+        );
+    }
+
+    /**
+     * Update content by key (admin only).
+     */
+    public function update(string $key, Request $request): JsonResponse
+    {
+        $content = SiteContent::where('content_key', $key)->first();
+
+        if (! $content) {
+            return $this->errorResponse('Content not found', 404);
+        }
+
+        $validated = $request->validate([
+            'value' => 'nullable|string',
+        ]);
+
+        $content->update(['content_value' => $validated['value'] ?? '']);
+
+        return $this->successResponse($content, 'Content updated successfully');
     }
 
     /**
@@ -79,6 +98,44 @@ class SiteContentController extends Controller
         $contents = SiteContent::all()->pluck('content_value', 'content_key');
 
         return $this->successResponse($contents, 'Contents updated successfully');
+    }
+
+    /**
+     * Batch store content items (admin only).
+     */
+    public function batchStore(Request $request): JsonResponse
+    {
+        return $this->bulkUpdate($request);
+    }
+
+    /**
+     * Batch update content items (admin only).
+     */
+    public function batchUpdate(Request $request): JsonResponse
+    {
+        return $this->bulkUpdate($request);
+    }
+
+    /**
+     * Batch destroy content items (admin only).
+     */
+    public function batchDestroy(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'keys' => 'required|array',
+            'keys.*' => 'required|string|max:255',
+        ]);
+
+        $deleted = 0;
+        foreach ($validated['keys'] as $key) {
+            $content = SiteContent::where('content_key', $key)->first();
+            if ($content) {
+                $content->delete();
+                $deleted++;
+            }
+        }
+
+        return $this->successResponse(null, "Deleted {$deleted} content items");
     }
 
     /**

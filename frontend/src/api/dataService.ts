@@ -138,12 +138,23 @@ export async function fetchSiteContent(): Promise<SiteContent | null> {
     const content = await laravelApi.getSiteContent();
     if (!content || Object.keys(content).length === 0) return null;
 
+    const stringFields: (keyof SiteContent)[] = ["logo", "favicon", "footerLogo", "pageTitle"];
     const result: Partial<SiteContent> = {};
     for (const [key, value] of Object.entries(content)) {
       if (!key || !value) continue;
       try {
         const field = keyToField(key);
-        (result as Record<string, any>)[field] = JSON.parse(value);
+        if (stringFields.includes(field)) {
+          // These are stored as plain strings, not JSON objects.
+          // Strip surrounding quotes from old data that was JSON.stringify-d.
+          let str = String(value);
+          if (str.length >= 2 && str.startsWith('"') && str.endsWith('"')) {
+            str = JSON.parse(str);
+          }
+          (result as Record<string, any>)[field] = str;
+        } else {
+          (result as Record<string, any>)[field] = JSON.parse(value);
+        }
       } catch {
         // skip unparseable rows
       }
@@ -162,13 +173,17 @@ export async function fetchSiteContent(): Promise<SiteContent | null> {
 export async function saveSiteContent(content: SiteContent): Promise<boolean> {
   try {
     const sections: (keyof SiteContent)[] = [
-      "logo", "favicon", "pageTitle", "headerVisibility",
+      "logo", "favicon", "footerLogo", "pageTitle", "headerVisibility",
       "hero", "sectionHeadings", "about", "footer",
     ];
 
+    const stringFields: (keyof SiteContent)[] = ["logo", "favicon", "footerLogo", "pageTitle"];
+
     for (const field of sections) {
       const key = fieldToKey(field);
-      const value = JSON.stringify((content as Record<string, any>)[field]);
+      const raw = (content as Record<string, any>)[field];
+      // String fields stored as-is; object fields JSON-stringified
+      const value = stringFields.includes(field) ? (raw ?? '') : JSON.stringify(raw);
       await laravelApi.updateSiteContent(key, value);
     }
     return true;

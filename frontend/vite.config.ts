@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -26,7 +26,8 @@ process.env.VITE_APP_DESCRIPTION = escapeHtmlAttr(process.env.VITE_APP_DESCRIPTI
 process.env.VITE_APP_LOGO_URL ??= process.env.OVERVIEW_LOGO_URL ?? 'https://public-frontend-cos.metadl.com/mgx/img/favicon_atoms.ico';
 
 // https://vitejs.dev/config/
-export default defineConfig(({ command }) => {
+export default defineConfig(({ command, mode }) => {
+  const env = loadEnv(mode, path.resolve(__dirname), '');
   const blogPrerenderRoutes = command === 'build' ? getBlogRoutes() : [];
 
   return {
@@ -57,7 +58,7 @@ export default defineConfig(({ command }) => {
     },
     server: {
       host: '0.0.0.0', // Bind all interfaces for IPv4 compatibility.
-      port: parseInt(process.env.VITE_PORT || '3000'),
+      port: parseInt(env.VITE_PORT || '3000'),
       proxy: {
         '/api': {
           target: 'http://127.0.0.1:8000',

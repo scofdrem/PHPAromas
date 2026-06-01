@@ -16,6 +16,7 @@ export interface NavItem {
 export interface SiteContent {
   logo: string;
   favicon: string;
+  footerLogo: string;
   pageTitle: string;
   headerText: {
     brandName: string;
@@ -26,6 +27,7 @@ export interface SiteContent {
     links: boolean;
     search: boolean;
     login: boolean;
+    adminLink: boolean;
   };
   navLinks: NavItem[];
   hero: {
@@ -75,9 +77,9 @@ export interface SiteContent {
     phone: string;
     copyright: string;
     privacyPolicyText: string;
-    privacyPolicyUrl: string;
+    privacyPolicyPdf: string;
     offerText: string;
-    offerUrl: string;
+    offerPdf: string;
     footerLinks: NavItem[];
   };
 }
@@ -85,6 +87,7 @@ export interface SiteContent {
 export const defaultSiteContent: SiteContent = {
   logo: "/logo.jpg",
   favicon: "/favicon.ico",
+  footerLogo: "/logo.jpg",
   pageTitle: "1000 Ароматов | Элитная парфюмерия на распив",
   headerText: {
     brandName: "1000 АРОМАТОВ",
@@ -95,6 +98,7 @@ export const defaultSiteContent: SiteContent = {
     links: true,
     search: true,
     login: true,
+    adminLink: false,
   },
   navLinks: [
     { name: "Каталог", path: "/catalogue", order: 0 },
@@ -147,7 +151,7 @@ export const defaultSiteContent: SiteContent = {
     ],
     title: "1000 Ароматов",
     description1:
-      "Мы — магазин парфюмерии на распив, который предлагает вам возможность познакомиться с элитными ароматами без необходимости покупать полный флакон. Каждый отливант разливается из оригинального флакона в стерильные условия с соблюдением всех стандартов качества.",
+      "Мы — магазин парфюмерии на распив, который предлагает вам возможность познакомиться с элитными ароматами без необходимости покупать полный флакон. Каждый отликант разливается из оригинального флакона в стерильные условия с соблюдением всех стандартов качества.",
     description2:
       "В нашем каталоге более 950 ароматов от ведущих мировых брендов: нишевая, люксовая и селективная парфюмерия. Мы гарантируем подлинность каждого флакона и бережную доставку по всей Беларуси.",
     location: "Минск, Беларусь",
@@ -161,7 +165,7 @@ export const defaultSiteContent: SiteContent = {
     brandName: "1000 АРОМАТОВ",
     subtitle: "ПАРФЮМ НА РАСПИВ",
     brandDescription:
-      "Интернет-магазин отливантов элитной парфюмерии. Оригинальные ароматы от 2 мл с доставкой по всей Беларуси.",
+      "Интернет-магазин отликантов элитной парфюмерии. Оригинальные ароматы от 2 мл с доставкой по всей Беларуси.",
     telegram: "@1000aromatov",
     viber: "+375 (29) 123-45-67",
     instagram: "@1000aromatov",
@@ -169,9 +173,9 @@ export const defaultSiteContent: SiteContent = {
     phone: "+375 (29) 123-45-67",
     copyright: "© 2026 1000 АРОМАТОВ. Все права защищены.",
     privacyPolicyText: "Политика конфиденциальности",
-    privacyPolicyUrl: "",
+    privacyPolicyPdf: "",
     offerText: "Оферта",
-    offerUrl: "",
+    offerPdf: "",
     footerLinks: [],
     navTitle: "Навигация",
     brandsTitle: "Бренды",
@@ -185,7 +189,27 @@ export const defaultSiteContent: SiteContent = {
 
 // Reactive store — components subscribe via useSiteContent hook
 import { useState, useEffect } from "react";
-import { fetchSiteContent, saveSiteContent as saveToBackend } from "@/api/dataService";
+import { fetchSiteContent as fetchFromBackend, saveSiteContent as saveToBackend } from "@/api/dataService";
+
+/** Fetch from backend and parse JSON-stringified object fields */
+export async function fetchSiteContent(): Promise<Record<string, any> | null> {
+  try {
+    const raw = await fetchFromBackend();
+    if (!raw) return null;
+    const objectFields = ["headerText", "headerVisibility", "navLinks", "hero", "sectionHeadings", "about", "footer"];
+    const parsed: Record<string, any> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      if (objectFields.includes(key) && typeof value === "string") {
+        try { parsed[key] = JSON.parse(value); } catch { parsed[key] = value; }
+      } else {
+        parsed[key] = value;
+      }
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 let currentContent: SiteContent = { ...defaultSiteContent };
 const listeners: Set<() => void> = new Set();
@@ -201,7 +225,7 @@ export function setSiteContent(content: SiteContent) {
 }
 
 /** Migrate old about.cards to about.banners if needed */
-function migrateContent(data: Record<string, any>): SiteContent {
+export function migrateContent(data: Record<string, any>): SiteContent {
   const about = data.about || {};
   // If banners missing but cards exist, convert cards → banners
   if (!about.banners && about.cards) {
@@ -220,8 +244,26 @@ function migrateContent(data: Record<string, any>): SiteContent {
   // Migrate headerVisibility - add logo if missing
   if (!data.headerVisibility) {
     data.headerVisibility = defaultSiteContent.headerVisibility;
-  } else if (data.headerVisibility.logo === undefined) {
-    data.headerVisibility.logo = true;
+  } else {
+    if (data.headerVisibility.logo === undefined) data.headerVisibility.logo = true;
+    if (data.headerVisibility.adminLink === undefined) data.headerVisibility.adminLink = false;
+  }
+  
+  // Migrate footer: privacyPolicyUrl/offerUrl → privacyPolicyPdf/offerPdf
+  const footer = data.footer || {};
+  if (footer.privacyPolicyUrl && !footer.privacyPolicyPdf) {
+    footer.privacyPolicyPdf = footer.privacyPolicyUrl;
+  }
+  delete footer.privacyPolicyUrl;
+  if (footer.offerUrl && !footer.offerPdf) {
+    footer.offerPdf = footer.offerUrl;
+  }
+  delete footer.offerUrl;
+  data.footer = footer;
+  
+  // Migrate footerLogo if missing
+  if (!data.footerLogo) {
+    data.footerLogo = defaultSiteContent.footerLogo;
   }
   
   // Ensure all top-level keys exist
