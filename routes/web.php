@@ -17,7 +17,7 @@ Route::get('/', function () {
     return view('spa');
 });
 
-// Catch-all route for SPA - must be last
+// Catch-all route for SPA - must be last (exclude /api)
 Route::get('/{any}', function () {
     return view('spa');
-})->where('any', '.*');
+})->where('any', '^(?!api).*');

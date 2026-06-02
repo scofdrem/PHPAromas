@@ -22,15 +22,15 @@ class SmtpSettingController extends Controller
 
         // Normalize field names for frontend (host→smtp_host, username→smtp_user, etc.)
         $data = [
-            'smtp_host' => $settings->host ?? '',
-            'smtp_port' => $settings->port ?? '',
-            'smtp_user' => $settings->username ?? '',
+            'smtp_host' => $settings?->host ?? '',
+            'smtp_port' => $settings?->port ?? '',
+            'smtp_user' => $settings?->username ?? '',
             // Return masked password unless was set (keep existing — don't expose in API reads)
-            'smtp_password' => $settings->password ? str_repeat('*', 10) : '',
-            'email_from' => $settings->from_address ?? '',
+            'smtp_password' => $settings?->password ? str_repeat('*', 10) : '',
+            'email_from' => $settings?->from_address ?? '',
             'email_to' => \App\Models\AppConfig::where('key', 'smtp_email_to')->value('value') ?? '',
             'email_reply_to' => \App\Models\AppConfig::where('key', 'smtp_email_reply_to')->value('value') ?? '',
-            'email_name' => $settings->from_name ?? '',
+            'email_name' => $settings?->from_name ?? '',
         ];
 
         return $this->successResponse($data);

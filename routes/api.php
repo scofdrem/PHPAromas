@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
 
+
     // ==================== AUTH ROUTES ====================
     Route::prefix('auth')->group(function () {
         // Public auth routes
@@ -44,8 +45,8 @@ Route::prefix('v1')->group(function () {
             Route::post('sessions/revoke-others', [SessionController::class, 'revokeOthers']);
         });
 
-        // Refresh route uses custom middleware that accepts expired tokens
-        Route::post('refresh', [AuthController::class, 'refresh'])->middleware(['auth.or.expired', 'auth.cookie']);
+        // Refresh route — simple cookie-based refresh
+        Route::post('refresh', [AuthController::class, 'refresh']);
 
         // Password reset routes
         Route::post('forgot-password', [PasswordResetController::class, 'sendResetLink']);
@@ -197,6 +198,70 @@ Route::prefix('v1')->group(function () {
         Route::post('upload', [StorageController::class, 'upload']);
         Route::get('resolve', [StorageController::class, 'resolve']);
     });
+});
 
+// ==================== LEGACY ROUTES (without v1 prefix) ====================
+Route::prefix('entities')->group(function () {
+    Route::prefix('site_content')->group(function () {
+        Route::get('/', [SiteContentController::class, 'index']);
+        Route::get('/{key}', [SiteContentController::class, 'show']);
+    });
+    Route::prefix('products')->group(function () {
+        Route::get('/', [ProductController::class, 'index']);
+        Route::get('/all', [ProductController::class, 'all']);
+        Route::get('/{id}', [ProductController::class, 'show']);
+    });
+    Route::prefix('categories')->group(function () {
+        Route::get('/', [CategoryController::class, 'index']);
+        Route::get('/{id}', [CategoryController::class, 'show']);
+    });
+    Route::prefix('brands')->group(function () {
+        Route::get('/', [BrandController::class, 'index']);
+        Route::get('/{id}', [BrandController::class, 'show']);
+    });
 
+    // App Configs (legacy fallback)
+    Route::prefix('app_configs')->group(function () {
+        Route::get('/', [AppConfigController::class, 'index']);
+        Route::get('/{key}', [AppConfigController::class, 'show']);
+    });
+
+    // Inquiries (legacy fallback)
+    Route::prefix('inquiries')->group(function () {
+        Route::post('/', [InquiryController::class, 'store']); // public
+        Route::middleware(['auth:api', 'verify.fingerprint'])->group(function () {
+            Route::middleware('role:administrator')->group(function () {
+                Route::get('/', [InquiryController::class, 'index']);
+                Route::get('/{id}', [InquiryController::class, 'show']);
+                Route::delete('/{id}', [InquiryController::class, 'destroy']);
+            });
+        });
+    });
+});
+
+// ==================== LEGACY ADMIN ROUTES (without v1 prefix) ====================
+Route::prefix('admin')->middleware(['auth:api', 'verify.fingerprint'])->group(function () {
+    Route::middleware('role:administrator')->group(function () {
+        // Account management
+        Route::get('account', [AdminController::class, 'account']);
+        Route::get('stats', [AdminController::class, 'dashboard']);
+        Route::patch('account', [AdminController::class, 'updateAccount']);
+        Route::post('account/password', [AdminController::class, 'changePassword']);
+        Route::get('account/feedback-email', [AdminController::class, 'feedbackEmail']);
+        Route::put('account/feedback-email', [AdminController::class, 'updateFeedbackEmail']);
+
+        // SMTP settings
+        Route::get('smtp', [SmtpSettingController::class, 'index']);
+        Route::put('smtp', [SmtpSettingController::class, 'update']);
+
+        // Login activities
+        Route::get('login-activities', [LoginActivityController::class, 'index']);
+
+        // User management
+        Route::get('users', [AdminController::class, 'users']);
+        Route::get('users/{id}', [AdminController::class, 'showUser']);
+        Route::post('users', [AdminController::class, 'createUser']);
+        Route::patch('users/{id}', [AdminController::class, 'updateUser']);
+        Route::delete('users/{id}', [AdminController::class, 'deleteUser']);
+    });
 });

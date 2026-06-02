@@ -56,7 +56,7 @@ class ProductController extends Controller
         $products = $query->orderBy('created_at', 'desc')
                          ->paginate($request->per_page ?? 15);
 
-        return $this->successResponse($this->paginatedResponse($products, 'products'));
+        return $this->successResponse(['products' => $products]);
     }
 
     /**

@@ -31,7 +31,6 @@ export default defineConfig(({ command, mode }) => {
   const blogPrerenderRoutes = command === 'build' ? getBlogRoutes() : [];
 
   return {
-    root: path.resolve(__dirname),
     plugins: [
       viteSourceLocator({
         prefix: 'mgx', // Prefix used to identify source locations; do not change.
@@ -43,7 +42,7 @@ export default defineConfig(({ command, mode }) => {
         readable: true,
         generateRobotsTxt: false,
       }),
-      ...(blogPrerenderRoutes.length > 0
+      ...(command === 'build' && blogPrerenderRoutes.length > 0
         ? vitePrerenderPlugin({
             renderTarget: '#root',
             prerenderScript: path.resolve(__dirname, 'prerender/blog.js'),
@@ -58,10 +57,11 @@ export default defineConfig(({ command, mode }) => {
     },
     server: {
       host: '0.0.0.0', // Bind all interfaces for IPv4 compatibility.
-      port: parseInt(env.VITE_PORT || '3000'),
+      port: parseInt(process.env.VITE_PORT || '3000', 10),
+      historyApiFallback: true,
       proxy: {
         '/api': {
-          target: 'http://127.0.0.1:8000',
+          target: 'http://127.0.0.1:3002',
           changeOrigin: true,
           configure: (proxy, _options) => {
             proxy.on('error', (err, _req, _res) => {
@@ -77,7 +77,6 @@ export default defineConfig(({ command, mode }) => {
         },
       },
       watch: { usePolling: true, interval: 600 },
-      historyApiFallback: true,
     },
     base: command === 'build' ? '/build/' : '/',
     build: {

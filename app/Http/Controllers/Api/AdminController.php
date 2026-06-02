@@ -106,7 +106,7 @@ class AdminController extends Controller
     }
 
     /**
-     * Update authenticated user account name.
+     * Update authenticated user account info (name, email).
      */
     public function updateAccount(Request $request): JsonResponse
     {
@@ -116,6 +116,7 @@ class AdminController extends Controller
         $validated = $request->validate([
             'first_name' => 'sometimes|string|max:255',
             'last_name'  => 'sometimes|string|max:255',
+            'email'      => 'sometimes|string|email|max:255|unique:users,email,'.$user->id,
         ]);
 
         $user->update($validated);

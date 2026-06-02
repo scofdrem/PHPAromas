@@ -19,7 +19,7 @@ final class CategoryController extends Controller
     {
         $categories = Category::all();
 
-        return $this->successResponse($this->collectionResponse($categories, 'categories'));
+        return $this->successResponse(['categories' => $categories]);
     }
 
     public function show(Category $category): JsonResponse

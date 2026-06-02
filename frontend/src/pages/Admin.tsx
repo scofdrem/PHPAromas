@@ -223,6 +223,21 @@ function TabError({ error, onRetry }: { error: string; onRetry: () => void }) {
   );
 }
 
+// Fallback objects — stable refs to prevent unnecessary re-renders
+const defaultAccount = { id: 0, email: "", name: "", role: "" };
+const defaultFeedback = { feedback_email: "" };
+const defaultAppConfig = {} as Record<string, string>;
+const defaultSmtp = {
+  smtp_host: "",
+  smtp_port: "",
+  smtp_user: "",
+  smtp_password: "",
+  email_from: "",
+  email_to: "",
+  email_name: "",
+  email_reply_to: "",
+};
+
 /* ─── Main Admin Component ─── */
 export default function Admin() {
   // Site Content — useAdminTabData with in-memory cache
@@ -273,25 +288,21 @@ export default function Admin() {
   const [saveError, setSaveError] = useState(false);
 
   useEffect(() => {
-    if (siteContentData.data !== null) {
-      setDraft({ ...(siteContentData.data as SiteContent) });
-    }
+    setDraft({ ...siteContentData.data });
   }, [siteContentData.data]);
 
   // App config — useAdminTabData
-  const appConfigData = useAdminTabData('app-config', () => laravelApi.getAppConfig(), {});
+  const appConfigData = useAdminTabData('app-config', laravelApi.getAppConfig.bind(laravelApi), {});
   const [appConfig, setAppConfig] = useState<Record<string, string>>({});
   const [appConfigMsg, setAppConfigMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [appConfigSaving, setAppConfigSaving] = useState(false);
 
   useEffect(() => {
-    if (appConfigData.data !== null) {
-      setAppConfig({ ...(appConfigData.data as Record<string, string>) });
-    }
+    setAppConfig({ ...appConfigData.data });
   }, [appConfigData.data]);
 
   // Account management — useAdminTabData
-  const accountData = useAdminTabData('account', () => laravelApi.getAccount(), {
+  const accountData = useAdminTabData('account', laravelApi.getAccount.bind(laravelApi), {
     id: 0,
     email: "",
     name: "",
@@ -303,12 +314,10 @@ export default function Admin() {
   const [accountMsg, setAccountMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
-    if (accountData.data !== null) {
-      const acc = accountData.data as { email?: string; name?: string; role?: string };
-      setAccountEmail(acc.email || "");
-      setAccountName(acc.name || "");
-      setAccountRole(acc.role || "");
-    }
+    const acc = accountData.data as { email?: string; name?: string; role?: string };
+    setAccountEmail(acc.email || "");
+    setAccountName(acc.name || "");
+    setAccountRole(acc.role || "");
   }, [accountData.data]);
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -316,7 +325,7 @@ export default function Admin() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   // Feedback email — useAdminTabData
-  const feedbackData = useAdminTabData('feedback-email', () => laravelApi.getFeedbackEmail(), {
+  const feedbackData = useAdminTabData('feedback-email', laravelApi.getFeedbackEmail.bind(laravelApi), {
     feedback_email: "",
   });
   const [feedbackEmail, setFeedbackEmail] = useState("");
@@ -324,10 +333,8 @@ export default function Admin() {
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
-    if (feedbackData.data !== null) {
-      const fb = feedbackData.data as { feedback_email?: string };
-      setFeedbackEmail(fb.feedback_email || "");
-    }
+    const fb = feedbackData.data as { feedback_email?: string };
+    setFeedbackEmail(fb.feedback_email || "");
   }, [feedbackData.data]);
 
   // SMTP settings — useAdminTabData
@@ -341,7 +348,7 @@ export default function Admin() {
     email_name: "",
     email_reply_to: "",
   };
-  const smtpData = useAdminTabData('smtp-settings', () => laravelApi.getSmtpSettings(), smtpDefault);
+  const smtpData = useAdminTabData('smtp-settings', laravelApi.getSmtpSettings.bind(laravelApi), smtpDefault);
   const [smtpHost, setSmtpHost] = useState("");
   const [smtpPort, setSmtpPort] = useState("");
   const [smtpUser, setSmtpUser] = useState("");
@@ -352,15 +359,13 @@ export default function Admin() {
   const [mailMsg, setMailMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
-    if (smtpData.data !== null) {
-      const s = smtpData.data as Record<string, string>;
-      setSmtpHost(s.smtp_host || "");
-      setSmtpPort(s.smtp_port || "");
-      setSmtpUser(s.smtp_user || "");
-      setSmtpPassword(s.smtp_password || "");
-      setEmailFrom(s.email_from || "");
-      setEmailTo(s.email_to || "");
-    }
+    const s = smtpData.data as Record<string, string>;
+    setSmtpHost(s.smtp_host || "");
+    setSmtpPort(s.smtp_port || "");
+    setSmtpUser(s.smtp_user || "");
+    setSmtpPassword(s.smtp_password || "");
+    setEmailFrom(s.email_from || "");
+    setEmailTo(s.email_to || "");
   }, [smtpData.data]);
 
   // Categories management
@@ -443,6 +448,7 @@ export default function Admin() {
     setSaveError(false);
     try {
       const ok = await persistSiteContent(draft);
+      siteContentData.invalidateCache();
       setSaving(false);
       setSaved(ok);
       setTimeout(() => setSaved(false), 2000);
@@ -468,6 +474,7 @@ export default function Admin() {
           await laravelApi.updateSiteContent(key, value);
         }
       }
+      appConfigData.invalidateCache();
       setAppConfigMsg({ type: "success", text: "Настройки сохранены" });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Ошибка сохранения";
@@ -1724,25 +1731,25 @@ export default function Admin() {
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-white/40 text-xs mb-1">Имя</label>
-                      <input type="text" value={accountName} onChange={(e) => { setAccountName(e.target.value); setAccountMsg(null); }} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20" placeholder="Ваше имя" />
+                      <input type="text" value={accountName} onChange={(e) => { setAccountName(e.target.value); setAccountMsg(null); }} disabled={accountData.isLoading} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20 disabled:opacity-50 disabled:cursor-not-allowed" placeholder="Ваше имя" />
                     </div>
                     <div>
                       <label className="block text-white/40 text-xs mb-1">Email</label>
-                      <input type="email" value={accountEmail} onChange={(e) => { setAccountEmail(e.target.value); setAccountMsg(null); }} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20" placeholder="email@example.com" />
+                      <input type="email" value={accountEmail} onChange={(e) => { setAccountEmail(e.target.value); setAccountMsg(null); }} disabled={accountData.isLoading} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20 disabled:opacity-50 disabled:cursor-not-allowed" placeholder="email@example.com" />
                     </div>
                   </div>
                   <div className="mt-4">
                     <label className="block text-white/40 text-xs mb-1">Текущий пароль</label>
-                    <input type="password" value={currentPassword} onChange={(e) => { setCurrentPassword(e.target.value); setAccountMsg(null); }} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20" placeholder="••••••••" />
+                    <input type="password" value={currentPassword} onChange={(e) => { setCurrentPassword(e.target.value); setAccountMsg(null); }} disabled={accountData.isLoading} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20 disabled:opacity-50 disabled:cursor-not-allowed" placeholder="••••••••" />
                   </div>
                   <div className="grid sm:grid-cols-2 gap-4 mt-4">
                     <div>
                       <label className="block text-white/40 text-xs mb-1">Новый пароль</label>
-                      <input type="password" value={newPassword} onChange={(e) => { setNewPassword(e.target.value); setAccountMsg(null); }} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20" placeholder="••••••••" />
+                      <input type="password" value={newPassword} onChange={(e) => { setNewPassword(e.target.value); setAccountMsg(null); }} disabled={accountData.isLoading} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20 disabled:opacity-50 disabled:cursor-not-allowed" placeholder="••••••••" />
                     </div>
                     <div>
                       <label className="block text-white/40 text-xs mb-1">Подтверждение пароля</label>
-                      <input type="password" value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); setAccountMsg(null); }} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20" placeholder="••••••••" />
+                      <input type="password" value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); setAccountMsg(null); }} disabled={accountData.isLoading} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20 disabled:opacity-50 disabled:cursor-not-allowed" placeholder="••••••••" />
                     </div>
                   </div>
                   {accountMsg && (
@@ -1774,12 +1781,14 @@ export default function Admin() {
                             setNewPassword("");
                             setConfirmPassword("");
                           }
+                          accountData.invalidateCache();
                           setAccountMsg({ type: "success", text: "Данные аккаунта обновлены" });
                         } catch (err: unknown) {
                           const message = err instanceof Error ? err.message : "Ошибка";
                           setAccountMsg({ type: "error", text: message });
                         }
                       }}
+                      disabled={accountData.isLoading}
                       className="bg-[#C69B56] text-black text-xs tracking-[0.1em] uppercase px-5 py-2 font-medium hover:bg-[#d4aa65] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       <Save size={12} /> Сохранить
@@ -1805,7 +1814,8 @@ export default function Admin() {
                       type="email"
                       value={feedbackEmail}
                       onChange={(e) => { setFeedbackEmail(e.target.value); setFeedbackMsg(null); }}
-                      className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20"
+                      disabled={feedbackData.isLoading}
+                      className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
                       placeholder="feedback@example.com"
                     />
                   </div>
@@ -1828,6 +1838,7 @@ export default function Admin() {
                         }
                         try {
                           await laravelApi.updateFeedbackEmail(feedbackEmail.trim().toLowerCase());
+                          feedbackData.invalidateCache();
                           setFeedbackMsg({ type: "success", text: "Email обратной связи обновлён" });
                         } catch (err: unknown) {
                           const message = err instanceof Error ? err.message : "Ошибка сохранения";
@@ -1878,7 +1889,8 @@ export default function Admin() {
                                 type="text"
                                 value={value}
                                 onChange={(e) => { setAppConfig((prev) => ({ ...prev, [key]: e.target.value })); setAppConfigMsg(null); }}
-                                className="w-full bg-black border border-white/10 text-white text-xs px-2 py-1 focus:border-[#C69B56] outline-none"
+                                disabled={appConfigData.isLoading}
+                                className="w-full bg-black border border-white/10 text-white text-xs px-2 py-1 focus:border-[#C69B56] outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                               />
                             </td>
                           </tr>
@@ -1918,32 +1930,32 @@ export default function Admin() {
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-white/40 text-xs mb-1">SMTP_HOST</label>
-                      <input type="text" value={smtpHost} onChange={(e) => { setSmtpHost(e.target.value); setMailMsg(null); }} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20" placeholder="smtp.gmail.com" />
+                      <input type="text" value={smtpHost} onChange={(e) => { setSmtpHost(e.target.value); setMailMsg(null); }} disabled={smtpData.isLoading} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20 disabled:opacity-50 disabled:cursor-not-allowed" placeholder="smtp.gmail.com" />
                       <span className="text-white/20 text-[10px]">Адрес SMTP-сервера</span>
                     </div>
                     <div>
                       <label className="block text-white/40 text-xs mb-1">SMTP_PORT</label>
-                      <input type="text" value={smtpPort} onChange={(e) => { setSmtpPort(e.target.value); setMailMsg(null); }} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20" placeholder="587" />
+                      <input type="text" value={smtpPort} onChange={(e) => { setSmtpPort(e.target.value); setMailMsg(null); }} disabled={smtpData.isLoading} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20 disabled:opacity-50 disabled:cursor-not-allowed" placeholder="587" />
                       <span className="text-white/20 text-[10px]">Порт (587 — TLS, 465 — SSL)</span>
                     </div>
                     <div>
                       <label className="block text-white/40 text-xs mb-1">SMTP_USER</label>
-                      <input type="text" value={smtpUser} onChange={(e) => { setSmtpUser(e.target.value); setMailMsg(null); }} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20" placeholder="your-email@gmail.com" />
+                      <input type="text" value={smtpUser} onChange={(e) => { setSmtpUser(e.target.value); setMailMsg(null); }} disabled={smtpData.isLoading} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20 disabled:opacity-50 disabled:cursor-not-allowed" placeholder="your-email@gmail.com" />
                       <span className="text-white/20 text-[10px]">Логин SMTP-сервера</span>
                     </div>
                     <div>
                       <label className="block text-white/40 text-xs mb-1">SMTP_PASSWORD</label>
-                      <input type="password" value={smtpPassword} onChange={(e) => { setSmtpPassword(e.target.value); setMailMsg(null); }} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20" placeholder="••••••••" />
+                      <input type="password" value={smtpPassword} onChange={(e) => { setSmtpPassword(e.target.value); setMailMsg(null); }} disabled={smtpData.isLoading} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20 disabled:opacity-50 disabled:cursor-not-allowed" placeholder="••••••••" />
                       <span className="text-white/20 text-[10px]">Пароль или app-specific пароль</span>
                     </div>
                     <div>
                       <label className="block text-white/40 text-xs mb-1">EMAIL_FROM</label>
-                      <input type="email" value={emailFrom} onChange={(e) => { setEmailFrom(e.target.value); setMailMsg(null); }} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20" placeholder="noreply@example.com" />
+                      <input type="email" value={emailFrom} onChange={(e) => { setEmailFrom(e.target.value); setMailMsg(null); }} disabled={smtpData.isLoading} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20 disabled:opacity-50 disabled:cursor-not-allowed" placeholder="noreply@example.com" />
                       <span className="text-white/20 text-[10px]">Адрес отправителя уведомлений</span>
                     </div>
                     <div>
                       <label className="block text-white/40 text-xs mb-1">EMAIL_TO</label>
-                      <input type="email" value={emailTo} onChange={(e) => { setEmailTo(e.target.value); setMailMsg(null); }} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20" placeholder="admin@example.com" />
+                      <input type="email" value={emailTo} onChange={(e) => { setEmailTo(e.target.value); setMailMsg(null); }} disabled={smtpData.isLoading} className="w-full bg-black border border-white/10 text-white text-sm px-3 py-2 focus:border-[#C69B56] outline-none placeholder:text-white/20 disabled:opacity-50 disabled:cursor-not-allowed" placeholder="admin@example.com" />
                       <span className="text-white/20 text-[10px]">Адрес получателя уведомлений о заявках</span>
                     </div>
                   </div>
@@ -1969,6 +1981,7 @@ export default function Admin() {
                             email_to: emailTo.trim(),
                             email_reply_to: "",
                           });
+                          smtpData.invalidateCache();
                           setMailMsg({ type: "success", text: "Настройки почты сохранены и применены немедленно." });
                         } catch (err: unknown) {
                           const message = err instanceof Error ? err.message : "Ошибка сохранения";

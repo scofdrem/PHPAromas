@@ -144,12 +144,23 @@ class AuthController extends Controller
 
     /**
      * Refresh a token.
+     * Accepts token from cookie (auth_token) or Authorization header.
      */
     public function refresh(Request $request): JsonResponse
     {
         try {
+            // Get token from cookie (jwt_token) or header (Bearer)
+            $token = $request->cookie('jwt_token') ?? $request->bearerToken();
+
+            if (!$token) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No token to refresh',
+                ], 401);
+            }
+
             $fingerprint = $this->generateTokenFingerprint($request);
-            $token = JWTAuth::claims(['fpt' => $fingerprint])->refresh();
+            $token = JWTAuth::setToken($token)->claims(['fpt' => $fingerprint])->refresh();
 
             return response()->json([
                 'data' => [

@@ -84,7 +84,7 @@ export interface AdminStats {
 }
 
 // ─── Token Management ────────────────────────────────────────────────────────
-// Now using httpOnly cookies, so tokens are sent automatically by the browser
+// Using httpOnly cookies, tokens sent automatically by browser
 
 const USER_KEY = 'laravel_user';
 
@@ -105,6 +105,11 @@ export function removeStoredUser(): void {
 
 class LaravelApiClient {
   private client: AxiosInstance;
+  private isRefreshing = false;
+  private failedQueue: Array<{
+    resolve: (value: any) => void;
+    reject: (error: any) => void;
+  }> = [];
 
   constructor() {
     this.client = axios.create({
@@ -117,27 +122,81 @@ class LaravelApiClient {
       timeout: 30000,
     });
 
-    // Response interceptor - handle 401 errors (but not for /me endpoint)
+    // Response interceptor - handle 401 errors with token refresh
     this.client.interceptors.response.use(
       (response) => response,
       async (error: AxiosError) => {
-        if (error.response?.status === 401) {
-          // Don't redirect for /me endpoint - let the caller handle it
-          const config = error.config as any;
-          const isMeEndpoint = config?.url?.includes('/v1/auth/me');
-          if (!isMeEndpoint) {
+        const originalRequest = error.config as any;
+
+        // Don't retry refresh/me/logout endpoints
+        const skipRefresh =
+          originalRequest?.url?.includes('/auth/refresh') ||
+          originalRequest?.url?.includes('/auth/logout') ||
+          originalRequest?._retry;
+
+        if (error.response?.status === 401 && !skipRefresh) {
+          const isMeEndpoint = originalRequest?.url?.includes('/v1/auth/me');
+
+          if (this.isRefreshing) {
+            // Queue this request until refresh completes
+            return new Promise((resolve, reject) => {
+              this.failedQueue.push({ resolve, reject });
+            })
+              .then((token) => {
+                return this.client(originalRequest);
+              })
+              .catch((err) => {
+                return Promise.reject(err);
+              });
+          }
+
+          originalRequest._retry = true;
+          this.isRefreshing = true;
+
+          try {
+            // Try to refresh the token
+            await this.client.post('/v1/auth/refresh');
+            this.onRefreshed(true);
+
+            // Retry original request
+            return this.client(originalRequest);
+          } catch (refreshError) {
+            this.onRefreshed(false);
+            this.failedQueue = [];
+
+            // Refresh failed - clear auth
             removeStoredUser();
-            if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+            if (!isMeEndpoint && typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
               window.location.href = '/login';
             }
-          } else {
-            // Just clear stored user for /me 401, let getMe() return null
+            return Promise.reject(error);
+          } finally {
+            this.isRefreshing = false;
+          }
+        }
+
+        // For /me endpoint with 401, just clear user silently
+        if (error.response?.status === 401) {
+          const isMeEndpoint = originalRequest?.url?.includes('/v1/auth/me');
+          if (isMeEndpoint) {
             removeStoredUser();
           }
         }
+
         return Promise.reject(error);
       }
     );
+  }
+
+  private onRefreshed(success: boolean): void {
+    this.failedQueue.forEach(({ resolve, reject }) => {
+      if (success) {
+        resolve(true);
+      } else {
+        reject(new Error('Token refresh failed'));
+      }
+    });
+    this.failedQueue = [];
   }
 
   private extractData<T>(response: any): T {
@@ -286,7 +345,6 @@ class LaravelApiClient {
     const response = await this.client.get('/entities/site_content');
     const raw = response.data?.data || response.data || {};
     if (Array.isArray(raw)) {
-      // Legacy array format [{ content_key, content_value }, ...]
       const content: Record<string, string> = {};
       for (const item of raw) {
         if (item?.content_key && item?.content_value !== undefined) {
@@ -295,7 +353,6 @@ class LaravelApiClient {
       }
       return content;
     }
-    // Direct key-value map from successResponse(plucked_map)
     if (raw && typeof raw === 'object') {
       return raw as Record<string, string>;
     }
@@ -381,11 +438,11 @@ class LaravelApiClient {
   }
 
   async updateAccountEmail(email: string): Promise<void> {
-    await this.client.put('/admin/account/email', { email });
+    await this.client.patch('/admin/account', { email });
   }
 
   async updateAccountName(name: string): Promise<void> {
-    await this.client.put('/admin/account/name', { name });
+    await this.client.patch('/admin/account', { name });
   }
 
   async changePassword(data: {
